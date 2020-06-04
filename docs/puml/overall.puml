@@ -1,0 +1,69 @@
+@startuml callflow
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+    AttributeIconSize 0
+}
+'skinparam style strictuml
+skinparam stereotypeCBackgroundColor White
+skinparam stereotypeIBackgroundColor White
+skinparam stereotypeEBackgroundColor White
+skinparam stereotypeABackgroundColor White
+skinparam linetype ortho
+
+'title "Initiation"
+hide footbox
+
+actor A
+actor B
+
+collections WebApp
+
+collections IM1
+collections IM2
+database DB
+
+queue REDIS AS RD
+
+database DYNAMO
+
+A --> WebApp : HTTP GET (login) 
+WebApp -> DB : check validity
+DB -> WebApp : OK
+
+WebApp --> A : 200OK 
+
+
+A --> WebApp : Set Profile A (HTTP)
+WebApp -> RD : Set Cache
+WebApp -> DYNAMO : Save Profile 
+
+
+A -> IM1 : connect (socket.io)
+IM1 -> RD : SUBSCRIBE A
+
+B -> B : create chatroom
+
+B -> WebApp : Get Profile A (HTTP)
+
+WebApp -> RD ++ : GetProfile B
+return Profile B
+
+WebApp -> B : 200 OK (JSON) 
+
+B -> IM2 : "msg" (socket.io)
+
+IM2 -> DYNAMO : set "msg" (backup)
+
+IM2 -> RD : PUBLISH A "msg"
+
+RD -> IM1 : "msg"
+
+IM1 -> B : "msg" (socket.io)
+
+
+
+@enduml
+
+

@@ -1,0 +1,52 @@
+@startuml callflow
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+    AttributeIconSize 0
+}
+'skinparam style strictuml
+skinparam stereotypeCBackgroundColor White
+skinparam stereotypeIBackgroundColor White
+skinparam stereotypeEBackgroundColor White
+skinparam stereotypeABackgroundColor White
+skinparam linetype ortho
+
+title "Basic Flow 1-to-1 (QUEUE)"
+hide footbox
+
+actor A
+actor B
+
+collections MsgSrv1
+collections MsgSrv2
+database DB
+queue QUEUE
+
+A -> MsgSrv1 : connect
+MsgSrv1 -> DB : location A
+
+
+B -> MsgSrv2 : connect
+MsgSrv2 -> DB : location B
+
+
+A -> MsgSrv1 : "msg" B
+MsgSrv1 -> DB ++ : where is B?
+return location B
+
+
+MsgSrv1 -> QUEUE : LPUSH B "msg"
+
+MsgSrv1 -> MsgSrv2 : notice
+
+MsgSrv2 -> QUEUE : LRANGE B 0 -1
+
+QUEUE -> MsgSrv2 : "msg"
+
+MsgSrv2 -> B : "msg"
+
+
+@enduml
+
+

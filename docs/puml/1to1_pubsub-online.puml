@@ -1,0 +1,72 @@
+@startuml callflow
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+    AttributeIconSize 0
+}
+'skinparam style strictuml
+skinparam stereotypeCBackgroundColor White
+skinparam stereotypeIBackgroundColor White
+skinparam stereotypeEBackgroundColor White
+skinparam stereotypeABackgroundColor White
+skinparam linetype ortho
+
+'title "Basic Flow 1-to-1 (PUBSUB))"
+hide footbox
+
+actor A
+actor B
+
+collections IM1
+collections IM2
+
+queue REDIS AS RD
+
+database DYNAMO
+
+A -> IM1 : connect
+IM1 -> RD : SUBSCRIBE A
+
+B -> IM2 : connect
+IM2 -> RD : SUBSCRIBE B
+
+A -> IM1 : "msg" to B
+IM1 -> DYNAMO : store "msg"
+
+IM1 -> RD : PUBLISH B "msg"
+
+RD -> IM2 : "msg"
+
+IM2 -> B : "msg"
+
+B -> IM2 : "delivery"
+
+IM2 -> DYNAMO : delete "msg" and store "delivery"
+
+
+IM2 -> RD : PUBLISH A "delivery"
+
+RD -> IM1 : "delivery"
+
+IM1 -> A : "delivery"
+
+IM1 -> DYNAMO : delete "delivery"
+
+B -> B : read "msg"
+
+B -> IM2 : "display"
+
+IM2 -> DYNAMO : store "display"
+
+IM2 -> RD : PUBLISH A "display"
+
+RD -> IM1 : "display"
+
+IM1 -> A : "display"
+
+IM1 -> DYNAMO : delete "display"
+
+@enduml
+
+

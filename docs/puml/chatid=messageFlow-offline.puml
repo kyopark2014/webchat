@@ -1,0 +1,56 @@
+@startuml messageFlow
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+    AttributeIconSize 0
+}
+'skinparam style strictuml
+skinparam stereotypeCBackgroundColor White
+skinparam stereotypeIBackgroundColor White
+skinparam stereotypeEBackgroundColor White
+skinparam stereotypeABackgroundColor White
+skinparam linetype ortho
+
+title "Message Flow - offline"
+hide footbox
+
+actor A
+actor B
+
+collections MsgSrvA
+collections MsgSrvB
+queue Redis
+database DB
+
+A -> MsgSrvA ++ : Send "msg"
+
+MsgSrvA -> DB : Write "msg" for recipient B
+
+MsgSrvA -> Redis : SET msg-id "msg"
+
+return 200OK
+
+MsgSrvA -> MsgSrvA !! : Is B subscribing chat-id?
+
+
+collections Push
+
+MsgSrvA --> Push : wake-up B with chat-id
+
+Push --> B : wake-up B with chat-id
+
+B -> MsgSrvB ++ : GetMsgAll
+
+
+MsgSrvB -> Redis : SUBSCRIBE chat-id
+
+MsgSrvB -> DB ++ : READ stored messages
+return 
+
+return "msg"
+
+
+@enduml
+
+
