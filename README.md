@@ -27,23 +27,8 @@ Client <-> Server : Socket.io
 
 Once one of client in a chatroom is not online, PUBSUB is not a good way to commnicate messages. So, the application server saves the message in Queue too using linked list. Then, once a client is back online, the message can be delivered to the client robustly.
 
-### PUBSUB ISSUES
-
-For one-to-one chat, published messages from Sender will return since the sender also do SUBSCRIBE into PUBSUB server.
-It may be used for acknowlegement for the sent message. But it also requires special management for UI because an user usually prefers to use legacy message experience where it shows if a message is failed to send by some reason, it should be displayed in the chat dialog so that the user recognizes and then tries again if needs.
-So, I think it is a redundacy for PUBSUB when it is applied for one-to-one chat.
-
-![image](https://user-images.githubusercontent.com/52392004/82962776-2801c100-9ffc-11ea-91bc-ebb94843d553.png)
-
-where Sender and Receiver are subscribed to a chat room with chat-id.
-
-In mobile environment, the state of user client can move to online to offline which means that Sender may not sucess to send a message based on the state of Receiver. So, the architecture should support store and forward approach.
-
-The proposed architecture is using PUBSUB to endpoints which doesn't have the redundancy and some of benefits to notice the received message and manages a single connection for multiple chat rooms.
-
-![image](https://user-images.githubusercontent.com/52392004/82962567-89756000-9ffb-11ea-8e5a-7eb737fd6f37.png)
-
-where Sender will publish to Receiver directly and messages can be delivered consistently without the state of Receiver.
+The proposed architecture is using PUBSUB to endpoints which doesn't have the redundancy and some of benefits to notice the received message and manages a single connection for multiple chat rooms. Notice that see https://github.com/kyopark2014/webchat-golang-chat if you need more.
+Sender will publish to Receiver directly and messages can be delivered consistently without the state of Receiver.
 
 ### OVERALL STRUCTURE
 
