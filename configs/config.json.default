@@ -4,6 +4,22 @@
         "Level": "DEBUG"
     },
     "GracefulTermTimeMillis": 500,
+    "Dynamo": {
+        "Endpoint": "http://localhost:8000",
+        "Region": "us-west-2",
+        "ReadCapacity": 10,
+        "WriteCapacity": 10
+    },  
+    "Redis":{
+        "Host": "localhost",
+        "Port": "6379",
+        "PoolMaxIdle":300,
+        "PoolMaxActive":300,
+        "PoolIdleTimeout":600,
+        "TTL":0,
+        "Password":"",
+        "ConnTimeout":500
+    },
     "ChatConfig": {
         "Host": "localhost",
         "Port": 4000

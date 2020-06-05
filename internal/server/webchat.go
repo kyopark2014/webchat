@@ -34,7 +34,8 @@ func (p *WebchatService) Start() error {
 		log.E("%v", err)
 	}
 
-	userMap := make(map[string]string) // hashmap to memorize the pair of socket id and user id
+	userMap := make(map[string]string)   // hashmap to memorize the pair of socket id and user id
+	currentUser := make(map[string]bool) // To-do it will be move to DB
 
 	server.On("connection", func(so socketio.Socket) {
 		log.D("connected... %v", so.Id())
@@ -49,8 +50,10 @@ func (p *WebchatService) Start() error {
 		quit := make(chan struct{})
 
 		so.On("disconnection", func() {
-			log.D("disconnected... %v", so.Id())
+			user := userMap[so.Id()]
+			log.D("disconnected... %v (%v)", so.Id(), user)
 
+			delete(currentUser, user)
 			delete(userMap, so.Id())
 			close(quit)
 
@@ -65,6 +68,8 @@ func (p *WebchatService) Start() error {
 		so.On("join", func(user string) {
 			log.D("Join...%v (%v)", user, so.Id())
 
+			currentUser[user] = true
+
 			for s, u := range userMap {
 				log.D("session: %v, uid: %v", s, u)
 				if u == user { // delete duplicated session
@@ -78,6 +83,9 @@ func (p *WebchatService) Start() error {
 			log.D("SUBSCRIBE request: %v", user)
 			subscribeEvent(user, userEvent)
 
+			// check stored message
+			getEventList(user, userEvent)
+
 			// make connection with redis server
 			go func() { // server <-> QUEUE / PUBSUB
 				for {
@@ -85,13 +93,13 @@ func (p *WebchatService) Start() error {
 					case event := <-receive: //
 						log.D("sent message: %v", event.Text)
 
-						// To-Do: check the validity of receiver
-						// To-Do: lpush to QUEUE
-						// pushEvent(&event)
-						//getEventList(event.From)
-
-						// publish to PUBSUB
-						publishEvent(&event)
+						// if online, push into redis
+						// if offline, backup received messages into QUEUE using rpush
+						if currentUser[event.To] {
+							publishEvent(&event)
+						} else {
+							pushEvent(&event)
+						}
 
 					case <-quit:
 						return
@@ -207,16 +215,14 @@ func subscribeEvent(channel string, e chan data.Event) {
 
 // setEvent is to save a message
 func pushEvent(event *data.Event) {
-	log.D("event: %v %v %v %v %v %v", event.EvtType, event.From, event.To, event.MsgID, event.Timestamp, event.Text)
-
 	// generate key
-	key := event.From // UID to identify the profile
+	key := event.To // UID to identify the profile
 
 	raw, err := json.Marshal(event)
 	if err != nil {
 		log.E("Cannot encode to Json", err)
 	}
-	log.D("key: %v value: %v", key, string(raw))
+	log.D("pushed message: key: %v value: %v", key, string(raw))
 
 	_, errRedis := rediscache.PushList(key, raw)
 	if errRedis != nil {
@@ -225,7 +231,7 @@ func pushEvent(event *data.Event) {
 }
 
 // GetUserInfo is getting the identification from the url
-func getEventList(key string) []*data.Event {
+func getEventList(key string, e chan data.Event) {
 	raw, err := rediscache.GetList(key)
 	if err != nil {
 		log.E("Error: %v", err)
@@ -235,26 +241,22 @@ func getEventList(key string) []*data.Event {
 		log.E("Fail to delete: key: %v errMsg: %v", key, err)
 	}
 
-	var values []*data.Event
-
-	var value *data.Event
+	var event *data.Event
 	for index := range raw {
 		log.D("raw[%v] : %v", index, string(raw[index]))
-		err = json.Unmarshal([]byte(raw[index]), &value)
+		err = json.Unmarshal([]byte(raw[index]), &event)
 		if err != nil {
 			log.E("%v: %v", key, err)
 		}
 
-		if value == nil {
+		if event == nil {
 			log.D("No cache in Redis")
 		} else {
-			log.D("value: %v", value.Text) // To-Do
+			log.D("loaded message: %v", event.MsgID) // To-Do
 		}
 
-		values = append(values, value)
+		e <- *event
 	}
-
-	return values
 }
 
 // setEvent is to save a message

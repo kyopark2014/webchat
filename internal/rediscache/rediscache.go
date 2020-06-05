@@ -89,9 +89,9 @@ func PushList(key string, raw []byte) (interface{}, error) {
 	c := pool.Get()
 	defer c.Close()
 
-	log.D("LPUSH: key: %s, value: %v", key, string(raw))
+	log.D("RPUSH: key: %s, value: %v", key, string(raw))
 
-	return c.Do("LPUSH", key, raw)
+	return c.Do("RPUSH", key, raw)
 }
 
 // GetList is to record the data in redis
@@ -140,7 +140,7 @@ func Subscribe(channel string, d chan []byte) error {
 			switch v := psc.Receive().(type) {
 			case redis.Message:
 				d <- v.Data
-				log.D("message: %s %s\n", v.Channel, v.Data)
+				//				log.D("message: %s %s\n", v.Channel, v.Data)
 			case redis.Subscription:
 				log.E("subscribed: %s %s %d\n", v.Channel, v.Kind, v.Count)
 			case error:

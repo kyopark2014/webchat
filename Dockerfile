@@ -13,4 +13,4 @@ FROM alpine:3.10.2
 WORKDIR /app
 COPY ./configs/config.json.default ./configs/config.json
 COPY --from=builder /webchat /app/
-CMD ["./webchat-basedon-pubsub"]
+CMD ["./webchat"]
