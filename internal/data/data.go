@@ -20,10 +20,20 @@ type Message struct {
 
 // Event is to define the event
 type Event struct {
-	EvtType   string
-	From      string
-	To        string
-	MsgID     string
-	Timestamp int
-	Text      string
+	EvtType    string
+	From       string
+	Originated string
+	To         string
+	MsgID      string
+	Timestamp  int
+	Text       string
+}
+
+// GroupInfo is to define a group information
+type GroupInfo struct {
+	EvtType      string
+	From         string
+	To           string
+	Timestamp    int
+	Participants []string
 }

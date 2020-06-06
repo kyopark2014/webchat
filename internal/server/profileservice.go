@@ -7,6 +7,7 @@ import (
 	"webchat/internal/config"
 	"webchat/internal/data"
 	"webchat/internal/dynamo"
+	"webchat/internal/mysql"
 	"webchat/internal/rediscache"
 
 	"github.com/gorilla/mux"
@@ -91,6 +92,41 @@ func Insert(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// InsertToSQL is the api to append an Item using SQL DB
+func InsertToSQL(w http.ResponseWriter, r *http.Request) {
+	// parse the data
+	var item data.UserProfile
+	_ = json.NewDecoder(r.Body).Decode(&item)
+	log.D("item: %+v", item)
+
+	// Insert into database
+	if err := mysql.InsertToDB(item); err != nil {
+		log.E("Got error calling PutItem: %v", err.Error())
+
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// put the item into rediscache
+	key := item.UID // UID to identify the profile
+
+	raw, err := json.Marshal(item)
+	if err != nil {
+		log.E("Cannot encode to Json", err)
+	}
+	log.D("key: %v value: %v", key, string(raw))
+
+	_, rErr := rediscache.SetCache(key, raw)
+	if rErr != nil {
+		log.E("Error of setCache: %v", rErr)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	log.D("Successfully inserted in redis cache")
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // Retrieve is the api to search an Item
 func Retrieve(w http.ResponseWriter, r *http.Request) {
 	uid := strings.Split(r.URL.Path, "/")[2]
@@ -121,6 +157,46 @@ func Retrieve(w http.ResponseWriter, r *http.Request) {
 			log.D("Fail to read: %v", err.Error())
 			w.WriteHeader(http.StatusNotFound)
 			return
+		}
+
+		log.D("%v", item)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(item)
+	}
+}
+
+// RetrieveFromSQL is the api to search an Item from SQL DB
+func RetrieveFromSQL(w http.ResponseWriter, r *http.Request) {
+	uid := strings.Split(r.URL.Path, "/")[2]
+	log.D("Looking for uid: %v ...", uid)
+
+	// search in redis cache
+	raw, err := rediscache.GetCache(uid)
+	if err != nil {
+		log.E("Error: %v", err)
+	}
+
+	var value *data.UserProfile
+	err = json.Unmarshal([]byte(raw), &value)
+	if err != nil {
+		log.E("%v: %v", uid, err)
+	}
+
+	if value != nil {
+		log.D("value from cache: %+v", value)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(value)
+	} else {
+		log.D("No data in redis cache then search it in database.")
+
+		// search in database
+		item, errCode := mysql.RetrevefromDB(uid)
+		if errCode == http.StatusInternalServerError || errCode == http.StatusNotFound {
+			w.WriteHeader(errCode)
+			return
+		} else {
+			log.D("Successfully quaried in database: %+v", item)
 		}
 
 		log.D("%v", item)

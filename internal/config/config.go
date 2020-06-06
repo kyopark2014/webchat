@@ -33,6 +33,17 @@ type AppConfig struct {
 	} `json:"ChatConfig"`
 	Redis  RedisConfig
 	Dynamo DynamoConfig
+	SQL    SQLConfig
+}
+
+// SQLConfig defines the parameters for SQL DB
+type SQLConfig struct {
+	Host     string `json:"Host"`
+	Port     string `json:"Port"`
+	Username string `json:"Username"`
+	Password string `json:"Password"`
+	Database string `json:"Database"`
+	Protocol string `json:"Protocol"`
 }
 
 // DynamoConfig is for parameters of Dynamo

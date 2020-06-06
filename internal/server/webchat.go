@@ -41,9 +41,14 @@ func (p *WebchatService) Start() error {
 		log.D("connected... %v", so.Id())
 
 		newMessages := make(chan string)
+		newGroupInfo := make(chan string)
 
 		so.On("chat", func(msg string) {
 			newMessages <- msg
+		})
+
+		so.On("group", func(groupEvent string) {
+			newGroupInfo <- groupEvent
 		})
 
 		// var quit chan struct{}
@@ -86,19 +91,21 @@ func (p *WebchatService) Start() error {
 			// check stored message
 			getEventList(user, userEvent)
 
-			// make connection with redis server
-			go func() { // server <-> QUEUE / PUBSUB
+			go func() { // send to redis
 				for {
 					select {
-					case event := <-receive: //
-						log.D("sent message: %v", event.Text)
-
+					case event := <-receive:
 						// if online, push into redis
 						// if offline, backup received messages into QUEUE using rpush
-						if currentUser[event.To] {
-							publishEvent(&event)
+						if event.To[0] == 'g' {
+							log.D("PUBLISH %v %v", event.To, event.Text)
+							publishEvent(event.To, &event)
 						} else {
-							pushEvent(&event)
+							if currentUser[event.To] {
+								publishEvent(event.To, &event)
+							} else {
+								pushEvent(&event)
+							}
 						}
 
 					case <-quit:
@@ -107,19 +114,57 @@ func (p *WebchatService) Start() error {
 				}
 			}()
 
-			go func() { // cient <-> server (WEB Socket)
+			go func() { // receive from client or redis
 				for {
 					select {
-					case event := <-userEvent: // sending event to client(browser)
-						log.D("sending event to browsers: %v %v %v %v %v %v (%v)", event.EvtType, event.From, event.To, event.MsgID, event.Timestamp, event.Text, so.Id())
-						so.Emit("chat", event)
+					case event := <-userEvent: // received event
+						log.D("Event(%v): (%v)->(%v) %v %v (%v)", event.EvtType, event.From, event.To, event.MsgID, event.Text, so.Id())
+
+						if event.EvtType == "subscribe" { // if received event is "subscribe", do "SUBSCRIBE"
+							log.D("SUBSCRIBE: (%v)->(%v)", user, event.From)
+							subscribeEvent(event.From, userEvent)
+
+							// get groupinfo
+							grpInfo := getGroupInfo(event.From)
+							log.D("Load Groupchat info and then send to clients")
+							if grpInfo != nil {
+								so.Emit("groupInfo", grpInfo)
+							}
+						} else { // --> web client (socket.io)
+							if event.Originated != user {
+								so.Emit("chat", event)
+							}
+						}
 
 					case msg := <-newMessages: // received message from client(browser)
 						var newMSG data.Message
 						json.Unmarshal([]byte(msg), &newMSG)
-						log.D("receiving message from browser: %v %v %v %v %v (%v)", newMSG.From, newMSG.To, newMSG.MsgID, newMSG.Timestamp, newMSG.Text, so.Id())
+						log.D("new message(%v): (%v)->(%v) %v %v (%v)", newMSG.EvtType, newMSG.From, newMSG.To, newMSG.MsgID, newMSG.Text, so.Id())
 
-						receive <- NewEvent(newMSG.EvtType, newMSG.From, newMSG.To, newMSG.MsgID, int(newMSG.Timestamp), newMSG.Text)
+						receive <- NewEvent(newMSG.EvtType, newMSG.From, "", newMSG.To, newMSG.MsgID, int(newMSG.Timestamp), newMSG.Text)
+
+					case grpEvent := <-newGroupInfo: // received group info from client(browser)
+						var grpInfo data.GroupInfo
+						json.Unmarshal([]byte(grpEvent), &grpInfo)
+						log.D("Group(%v): %v %v %v %v", grpInfo.EvtType, grpInfo.From, grpInfo.To, grpInfo.Timestamp, grpInfo.Participants)
+
+						if grpInfo.EvtType == "create" {
+							for i := range grpInfo.Participants {
+								log.D("subscribe request to %v", grpInfo.Participants[i])
+								event := NewEvent("subscribe", grpInfo.To, "", grpInfo.Participants[i], "", grpInfo.Timestamp, "")
+
+								// save participant information into redis
+								setGroupInfo(&grpInfo)
+
+								// request publish to participants
+								publishEvent(grpInfo.Participants[i], &event)
+							}
+						} else if grpInfo.EvtType == "left" {
+							// To-Do
+						} else if grpInfo.EvtType == "refer" {
+							// To-Do
+						}
+
 					case <-quit:
 						return
 					}
@@ -159,22 +204,17 @@ func (p *ProfileService) OnTerminate() error {
 }
 
 // NewEvent is to create an new event
-func NewEvent(evtType string, from string, to string, msgID string, timestamp int, msg string) data.Event {
-	return data.Event{evtType, from, to, msgID, timestamp, msg}
+func NewEvent(evtType string, from string, originated string, to string, msgID string, timestamp int, msg string) data.Event {
+	return data.Event{evtType, from, originated, to, msgID, timestamp, msg}
 }
 
-// setEvent is to save a message
-func publishEvent(event *data.Event) {
-	log.D("event: %v %v %v %v %v", event.EvtType, event.From, event.To, event.Timestamp, event.Text)
-
-	// generate key
-	key := event.To // UID to identify the profile
+func publishEvent(key string, event *data.Event) {
+	//log.D("event: %v %v %v %v %v", event.EvtType, event.From, event.To, event.Timestamp, event.Text)
 
 	raw, err := json.Marshal(event)
 	if err != nil {
 		log.E("Cannot encode to Json", err)
 	}
-	log.D("key: %v value: %v", key, string(raw))
 
 	_, errRedis := rediscache.Publish(key, raw)
 	if errRedis != nil {
@@ -182,19 +222,19 @@ func publishEvent(event *data.Event) {
 	}
 }
 
-func subscribeEvent(channel string, e chan data.Event) {
+func subscribeEvent(channel string, userEvent chan data.Event) {
 	log.D("channel: %v", channel)
 
-	d := make(chan []byte, 10)
+	redisChan := make(chan []byte, 10)
 
-	if err := rediscache.Subscribe(channel, d); err != nil {
+	if err := rediscache.Subscribe(channel, redisChan); err != nil {
 		log.E("%s", err)
 	}
 
 	go func() {
 		for {
-			raw := <-d
-			log.D("Received Data: %v", string(raw))
+			raw := <-redisChan
+			log.D("Received event: %v", string(raw))
 
 			var event data.Event
 			errJSON := json.Unmarshal([]byte(raw), &event)
@@ -202,13 +242,11 @@ func subscribeEvent(channel string, e chan data.Event) {
 				log.E("%v: %v", channel, errJSON)
 			}
 
-			e <- event // send event
-
-			/*	if event == nil {
-					log.D("No cache in Redis")
-				} else {
-					log.D("value: %v", event.Text) // To-Do
-				} */
+			if event.To[0] == 'g' { // for groupchat, "originated" needs to set by the sender
+				userEvent <- NewEvent(event.EvtType, event.To, event.From, channel, event.MsgID, event.Timestamp, event.Text) // send event
+			} else {
+				userEvent <- event
+			}
 		}
 	}()
 }
@@ -278,7 +316,7 @@ func setEvent(event *data.Event) {
 	}
 }
 
-// GetUserInfo is getting the identification from the url
+// getEvent is to get the information of event saved in radis
 func getEvent(key string) *data.Event {
 	raw, err := rediscache.GetCache(key)
 	if err != nil {
@@ -297,6 +335,44 @@ func getEvent(key string) *data.Event {
 	} else {
 		log.D("value: %v", value.Text) // To-Do
 	}
+
+	return value
+}
+
+// setEvent is to save a message
+func setGroupInfo(grpInfo *data.GroupInfo) {
+	log.D("group: %v", grpInfo.Participants)
+
+	// generate key
+	key := grpInfo.To // UID to identify the profile
+
+	raw, err := json.Marshal(grpInfo)
+	if err != nil {
+		log.E("Cannot encode to Json", err)
+	}
+	log.D("key: %v value: %v", key, string(raw))
+
+	_, errRedis := rediscache.SetCache(key, raw)
+	if errRedis != nil {
+		log.E("Error of setEvent: %v", errRedis)
+	}
+}
+
+// getEvent is to get the information of event saved in radis
+func getGroupInfo(key string) *data.GroupInfo {
+	raw, err := rediscache.GetCache(key)
+	if err != nil {
+		log.E("Error: %v", err)
+	}
+	log.D("raw: %v", string(raw))
+
+	var value *data.GroupInfo
+	err = json.Unmarshal([]byte(raw), &value)
+	if err != nil {
+		log.E("%v: %v", key, err)
+	}
+
+	log.D("participants: %v", value.Participants) // To-Do
 
 	return value
 }

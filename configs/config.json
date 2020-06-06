@@ -23,5 +23,19 @@
     "ChatConfig": {
         "Host": "localhost",
         "Port": 4000
-    }
-  }
+    },
+    "SQL":{
+        "Host":"localhost",  
+        "Port":"3306",
+        "Username":"minikube",
+        "Password":"minikube",
+        "Database": "my_db",
+        "SchemaVersion": "0.0.1",
+        "Timeout":"20000ms",
+        "Protocol":"tcp",
+        "MaxOpenConnection":150,
+        "MaxIdleConnection":150,
+        "IdleConnectionTimeoutSec":90,
+        "ConnectionTimeoutSec":10
+      }    
+}

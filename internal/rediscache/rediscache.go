@@ -115,7 +115,7 @@ func Publish(key string, raw []byte) (interface{}, error) {
 	c := pool.Get()
 	defer c.Close()
 
-	log.D("PUBLISH: %s %v", key, string(raw))
+	// log.D("PUBLISH: %s %v", key, string(raw))
 
 	return c.Do("PUBLISH", key, raw)
 }
