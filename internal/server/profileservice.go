@@ -44,7 +44,7 @@ func (p *ProfileService) Start() error {
 	r.HandleFunc("/", LiveCheck).Methods("GET")
 
 	var err error
-	err = http.ListenAndServe(":8081", r)
+	err = http.ListenAndServe(":4040", r)
 
 	return err
 }
