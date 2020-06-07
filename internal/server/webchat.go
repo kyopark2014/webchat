@@ -196,8 +196,8 @@ func (p *WebchatService) Start() error {
 }
 
 // OnTerminate is to close the servcie
-func (p *ProfileService) OnTerminate() error {
-	log.I("Profile Server was terminated")
+func (p *WebchatService) OnTerminate() error {
+	log.I("WebchatService was terminated")
 
 	// To-Do: add codes for error cases if requires
 	return nil
@@ -251,7 +251,7 @@ func subscribeEvent(channel string, userEvent chan data.Event) {
 	}()
 }
 
-// setEvent is to save a message
+// pushEvent is to save a message
 func pushEvent(event *data.Event) {
 	// generate key
 	key := event.To // UID to identify the profile
@@ -268,7 +268,7 @@ func pushEvent(event *data.Event) {
 	}
 }
 
-// GetUserInfo is getting the identification from the url
+// getEventList is to get event list
 func getEventList(key string, e chan data.Event) {
 	raw, err := rediscache.GetList(key)
 	if err != nil {
@@ -339,7 +339,7 @@ func getEvent(key string) *data.Event {
 	return value
 }
 
-// setEvent is to save a message
+// setGroupInfo is to save a group information
 func setGroupInfo(grpInfo *data.GroupInfo) {
 	log.D("group: %v", grpInfo.Participants)
 
@@ -358,7 +358,7 @@ func setGroupInfo(grpInfo *data.GroupInfo) {
 	}
 }
 
-// getEvent is to get the information of event saved in radis
+// getGroupInfo is to get the information of group info
 func getGroupInfo(key string) *data.GroupInfo {
 	raw, err := rediscache.GetCache(key)
 	if err != nil {
