@@ -121,7 +121,7 @@ func Publish(key string, raw []byte) (interface{}, error) {
 }
 
 // Subscribe is to get message event in redis
-func Subscribe(channel string, d chan []byte) error {
+func Subscribe(channel string, d chan []byte, quit chan struct{}) error {
 	c := pool.Get()
 	defer c.Close()
 
@@ -147,6 +147,12 @@ func Subscribe(channel string, d chan []byte) error {
 				log.E("%v", error.Error)
 				return
 			}
+
+			/*	select {
+				case <-quit:
+					log.D("Unsubscribe")
+					return
+				} */
 		}
 
 		psc.Unsubscribe()

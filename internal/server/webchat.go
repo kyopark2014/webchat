@@ -51,8 +51,8 @@ func (p *WebchatService) Start() error {
 			newGroupInfo <- groupEvent
 		})
 
-		// var quit chan struct{}
-		quit := make(chan struct{})
+		quit := make(chan struct{})               // 1-to-1
+		quitMap := make(map[string]chan struct{}) // group
 
 		so.On("disconnection", func() {
 			user := userMap[so.Id()]
@@ -61,6 +61,11 @@ func (p *WebchatService) Start() error {
 			delete(currentUser, user)
 			delete(userMap, so.Id())
 			close(quit)
+
+			for k := range quitMap {
+				log.D("Quit: ", k)
+				close(quitMap[k])
+			}
 
 			for s, u := range userMap {
 				log.D("Last session: %v, uid: %v", s, u)
@@ -86,7 +91,7 @@ func (p *WebchatService) Start() error {
 
 			userMap[so.Id()] = user
 			log.D("SUBSCRIBE request: %v", user)
-			subscribeEvent(user, userEvent)
+			subscribeEvent(user, userEvent, quit)
 
 			// check stored message
 			getEventList(user, userEvent)
@@ -127,7 +132,9 @@ func (p *WebchatService) Start() error {
 
 						if event.EvtType == "subscribe" { // if received event is "subscribe", do "SUBSCRIBE"
 							log.D("SUBSCRIBE: (%v)->(%v)", user, event.From)
-							subscribeEvent(event.From, userEvent)
+
+							quitMap[event.From] = make(chan struct{})
+							subscribeEvent(event.From, userEvent, quitMap[event.From])
 
 							// get groupinfo
 							grpInfo := getGroupInfo(event.From)
@@ -157,7 +164,8 @@ func (p *WebchatService) Start() error {
 							// save participant information into redis
 							setGroupInfo(&grpInfo)
 							// subscribe the groupcaht
-							subscribeEvent(grpInfo.To, userEvent)
+							quitMap[grpInfo.To] = make(chan struct{})
+							subscribeEvent(grpInfo.To, userEvent, quitMap[grpInfo.To])
 
 							for i := range grpInfo.Participants {
 								log.D("subscribe request to %v", grpInfo.Participants[i])
@@ -168,10 +176,19 @@ func (p *WebchatService) Start() error {
 									publishEvent(grpInfo.Participants[i], &event)
 								}
 							}
-						} else if grpInfo.EvtType == "depart" {
-							// To-Do
 						} else if grpInfo.EvtType == "refer" {
-							// To-Do
+							for i := range grpInfo.Participants {
+								log.D("subscribe request to %v", grpInfo.Participants[i])
+								event := NewEvent("subscribe", grpInfo.To, "", grpInfo.Participants[i], "", grpInfo.Timestamp, "")
+
+								// request publish to participants
+								if grpInfo.Participants[i] != user {
+									publishEvent(grpInfo.Participants[i], &event)
+								}
+							}
+						} else if grpInfo.EvtType == "depart" {
+							log.D("Depart: %v", grpInfo.To)
+							close(quitMap[grpInfo.To])
 						}
 
 					case <-quit:
@@ -231,12 +248,12 @@ func publishEvent(key string, event *data.Event) {
 	}
 }
 
-func subscribeEvent(channel string, userEvent chan data.Event) {
+func subscribeEvent(channel string, userEvent chan data.Event, quit chan struct{}) {
 	log.D("channel: %v", channel)
 
 	redisChan := make(chan []byte, 10)
 
-	if err := rediscache.Subscribe(channel, redisChan); err != nil {
+	if err := rediscache.Subscribe(channel, redisChan, quit); err != nil {
 		log.E("%s", err)
 	}
 
