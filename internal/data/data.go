@@ -10,12 +10,13 @@ type UserProfile struct {
 
 // Message is the data structure of messages
 type Message struct {
-	EvtType   string
-	From      string
-	To        string
-	MsgID     string
-	Timestamp int
-	Text      string
+	EvtType    string
+	From       string
+	Originated string
+	To         string
+	MsgID      string
+	Timestamp  int
+	Text       string
 }
 
 // Event is to define the event

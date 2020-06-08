@@ -1,0 +1,86 @@
+@startuml callflow
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+    AttributeIconSize 0
+}
+'skinparam style strictuml
+skinparam stereotypeCBackgroundColor White
+skinparam stereotypeIBackgroundColor White
+skinparam stereotypeEBackgroundColor White
+skinparam stereotypeABackgroundColor White
+skinparam linetype ortho
+
+'title "Basic Flow 1-to-1 (PUBSUB))"
+hide footbox
+
+actor A
+actor B
+actor C
+
+collections IM1
+collections IM2
+collections IM3
+
+database SQL
+
+queue PUBSUB AS RD
+
+A -> IM1 : connect
+IM1 -> SQL : location A
+IM1 -> RD : SUBSCRIBE A
+
+B -> IM2 : connect
+IM2 -> SQL: location B
+IM2 -> RD : SUBSCRIBE B
+
+C -> IM3 : connect
+IM3 -> SQL: location C
+IM3 -> RD : SUBSCRIBE C
+
+
+
+A -> IM1 : create "groupID"
+
+'IM1 -> SQL++: Is B and C online? 
+'return online
+
+IM1 -> RD : SUBSCRIBE "groupID"
+
+IM1 -> RD : PUBLISH B "subscribe required for groupID"
+IM1 -> RD : save groupInfo
+RD -> IM2 : "subscribe required for groupID"
+IM2 -> RD : SUBSCRIE "groupID"
+IM2 -> RD ++: Get groupInfo
+return "participant list"
+IM2 -> B: "participant list"
+IM1 -> RD : PUBLISH C "subscribe required for groupID"
+RD -> IM3 : "subscribe required for groupID"
+IM3 -> RD : SUBSCRIE "groupID"
+IM3 -> RD ++: Get groupInfo
+return "participant list"
+IM3 -> C: "participant list"
+
+
+A -> IM1 : "msg" to "groupID"
+
+IM1 -> RD : PUBLISH "groupID" "msg" (orig=A)
+
+RD -> IM2 : "msg" to B (orig=A)
+IM2 -> B : "msg" to B (orig=A)
+B -> IM2 : "delivery" to group (orig A)
+IM2 -> RD : "delivery" to A
+RD -> IM1 : "delivery"
+IM1 -> A: "delivery" 
+
+RD -> IM3 : "msg" to C (orig=A)
+IM3 -> C : "msg" to C (orig=A)
+C -> IM3 : "delivery" to group (orig=A)
+IM3 -> RD : "delivery" to A 
+RD -> IM1: "delivery" to A
+IM1 -> A: "delivery"
+
+@enduml
+
+

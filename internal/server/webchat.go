@@ -97,10 +97,15 @@ func (p *WebchatService) Start() error {
 					case event := <-receive:
 						// if online, push into redis
 						// if offline, backup received messages into QUEUE using rpush
-						if event.To[0] == 'g' {
-							log.D("PUBLISH %v %v", event.To, event.Text)
-							publishEvent(event.To, &event)
-						} else {
+						if event.To[0] == 'g' { // groupchat
+							if event.EvtType == "message" {
+								log.D("PUBLISH %v %v %v", event.EvtType, event.To, event.MsgID)
+								publishEvent(event.To, &event)
+							} else {
+								log.D("PUBLISH %v %v %v", event.EvtType, event.Originated, event.MsgID)
+								publishEvent(event.Originated, &event)
+							}
+						} else { // 1-to-1
 							if currentUser[event.To] {
 								publishEvent(event.To, &event)
 							} else {
@@ -139,9 +144,9 @@ func (p *WebchatService) Start() error {
 					case msg := <-newMessages: // received message from client(browser)
 						var newMSG data.Message
 						json.Unmarshal([]byte(msg), &newMSG)
-						log.D("new message(%v): (%v)->(%v) %v %v (%v)", newMSG.EvtType, newMSG.From, newMSG.To, newMSG.MsgID, newMSG.Text, so.Id())
+						log.D("new message(%v): (%v %v)->(%v) %v %v (%v)", newMSG.EvtType, newMSG.From, newMSG.Originated, newMSG.To, newMSG.MsgID, newMSG.Text, so.Id())
 
-						receive <- NewEvent(newMSG.EvtType, newMSG.From, "", newMSG.To, newMSG.MsgID, int(newMSG.Timestamp), newMSG.Text)
+						receive <- NewEvent(newMSG.EvtType, newMSG.From, newMSG.Originated, newMSG.To, newMSG.MsgID, int(newMSG.Timestamp), newMSG.Text)
 
 					case grpEvent := <-newGroupInfo: // received group info from client(browser)
 						var grpInfo data.GroupInfo
@@ -149,17 +154,21 @@ func (p *WebchatService) Start() error {
 						log.D("Group(%v): %v %v %v %v", grpInfo.EvtType, grpInfo.From, grpInfo.To, grpInfo.Timestamp, grpInfo.Participants)
 
 						if grpInfo.EvtType == "create" {
+							// save participant information into redis
+							setGroupInfo(&grpInfo)
+							// subscribe the groupcaht
+							subscribeEvent(grpInfo.To, userEvent)
+
 							for i := range grpInfo.Participants {
 								log.D("subscribe request to %v", grpInfo.Participants[i])
 								event := NewEvent("subscribe", grpInfo.To, "", grpInfo.Participants[i], "", grpInfo.Timestamp, "")
 
-								// save participant information into redis
-								setGroupInfo(&grpInfo)
-
 								// request publish to participants
-								publishEvent(grpInfo.Participants[i], &event)
+								if grpInfo.Participants[i] != user {
+									publishEvent(grpInfo.Participants[i], &event)
+								}
 							}
-						} else if grpInfo.EvtType == "left" {
+						} else if grpInfo.EvtType == "depart" {
 							// To-Do
 						} else if grpInfo.EvtType == "refer" {
 							// To-Do

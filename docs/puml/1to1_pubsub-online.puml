@@ -21,18 +21,23 @@ actor B
 collections IM1
 collections IM2
 
-queue REDIS AS RD
+database SQL
 
-database DYNAMO
+queue PUBSUB AS RD
 
 A -> IM1 : connect
+IM1 -> SQL : location A
 IM1 -> RD : SUBSCRIBE A
 
 B -> IM2 : connect
+IM2 -> SQL: location B
 IM2 -> RD : SUBSCRIBE B
 
+
 A -> IM1 : "msg" to B
-IM1 -> DYNAMO : store "msg"
+
+IM1 -> SQL++: Is B online? 
+return online
 
 IM1 -> RD : PUBLISH B "msg"
 
@@ -42,8 +47,6 @@ IM2 -> B : "msg"
 
 B -> IM2 : "delivery"
 
-IM2 -> DYNAMO : delete "msg" and store "delivery"
-
 
 IM2 -> RD : PUBLISH A "delivery"
 
@@ -51,21 +54,16 @@ RD -> IM1 : "delivery"
 
 IM1 -> A : "delivery"
 
-IM1 -> DYNAMO : delete "delivery"
 
 B -> B : read "msg"
 
 B -> IM2 : "display"
-
-IM2 -> DYNAMO : store "display"
 
 IM2 -> RD : PUBLISH A "display"
 
 RD -> IM1 : "display"
 
 IM1 -> A : "display"
-
-IM1 -> DYNAMO : delete "display"
 
 @enduml
 
