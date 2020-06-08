@@ -30,6 +30,10 @@ Once one of client in a chatroom is not online, PUBSUB is not a good way to comm
 The proposed architecture is using PUBSUB to endpoints which doesn't have the redundancy and some of benefits to notice the received message and manages a single connection for multiple chat rooms. Notice that see https://github.com/kyopark2014/webchat-golang-chat if you need more.
 Sender will publish to Receiver directly and messages can be delivered consistently without the state of Receiver.
 
+#### Groupchat
+
+![alternative text](http://www.plantuml.com/plantuml/png/bLBHRjCm57s_Nt7LbwwQAj7sRHAms1iYqf1WqSIpwzosrjouinr6GVmxJcDmaZLYz2NokUSSdtlSQ-U5zVLUenHQRxHv1lUegeEmOezI2-Vm9s3uCI4VjzRKLScDDXQ_xfIdqoIprZot8DE1rTADBSaEqSnxgzQrfroQgb0_2D_0BvYc6vq_Qa8NMB891Tq9MJB-U21-FievQlvwwkthgTc_g5fLr13HMByp05Ell2QSCE6Kn0-XP5pClPalyEBp0oiUs6msWPqg2JV6-BNv3Y2a3yPP_BBuvG3IQ4tIArCvp3yj1kVbuBm2A8KNQ-48Yozt04yrrOJjhPWLU7y3aE7yNUE5LoXDLGKrDAS01aa0jP6YCSGiua4Lu2AOyFkStGOSMEknx7aieqV7WaLuQC40U6knwbciNbhm20yjE41_5ql2XzQRbphaDnE0QLhhyl8ASuSCHLKYHrCrR_OUOMh9rxQA08mid3nx15UldRHgJMZfgNOUlK666sCxWa2CJGtvT5Pmhg__2i170gp60Wm53NKyGA_ooTvj9y5ZB5_utztbnSSqZeeBOzNsRJQ3L4_NZIL2R8EDZ5b7NP9MtyWUJvpJXIqF0o-LEYHcVoCiUhC_UsGz0QGwkubuIXJRuoDZdjGZWPFDI61CYL_CpgO6kAQghFSQ07u3)
+
 ### OVERALL STRUCTURE
 
 There are two connection ways between client and server. Socket.io is used for chat session and REST API is used for call logs.
