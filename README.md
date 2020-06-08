@@ -10,6 +10,14 @@ profile server: https://github.com/kyopark2014/webchat-golang-profile
 web client: https://github.com/kyopark2014/webchat-js-webclient
 
 
+### OVERALL STRUCTURE
+
+There are two connection ways between client and server. Socket.io is used for chat session and REST API is used for call logs.
+
+![image](https://user-images.githubusercontent.com/52392004/82965685-c6455500-a003-11ea-91ed-974b845d856d.png)
+
+where REDIS is for PUBSUB and DYNAMO DB is for storage for call logs. Notice that the diagram shows the simple flow for messaging where many flows are ignored to explain the basic flows.
+
 
 ### Basic Call Flow
 
@@ -34,10 +42,3 @@ Sender will publish to Receiver directly and messages can be delivered consisten
 
 ![alternative text](http://www.plantuml.com/plantuml/png/ZPHHRzCm58NVxw-uoajNJPLe-pO9M9mD4Mb8i6ZYsNLkMskktTaEeo3-Emu9TP9bQ_SI-TnplnoVJBrsdbjVxHGAhjHQcMTmZrBlkUKx58exXxy1mn_Zud5ZJQNBp2XZyVjMUletIQqrput8L70rTcDBiaCrzTxALUKf5qONyXVXE_W3a_X6vm-Aq0MNg4D1TqAMZ3_iAHkDCchDpxVUdczDJrcLr5GRqLY_DG0JBxqYJ1XtKk2dK3BEPzxCvdZnzO4L3smwJM0hIyArCNvbVW9muGCuRP-iVMO0mYX5makZ7UPVveFpOd1U0fJSynLtXCMtEu2dYYh2vgsO5dX_0v3Yx4FDmYiKHkkm3U4Kn7ebYCe8NWCnRVMm5UGYGBBxdDq67LZ3MFGOYvRHGR1M7Y8OGDOWbZt4yYKYQ-KX8WFetyKIzw7r-aljyvi4O1AlTNbvXRb3XboNcA7HzJVxY32nv2khMm76BnoPVKEezIulFWTguggL4rQk22qzLT9IYMjZyRWN_CV2Jff7AZkP8Ji_m_Ay3CitCtIAJtPkaw0t9oB6SRjnOQpSl4-dq6qdqbWqj8MmLyQiirsIaZ_87cfFSvl6Xy4NUnqQqsE4UM_s_nvfRm5YbTr4MKpKjfUDZ-E__Xk18sOqCCR4BsQZgG6kIPVrZop0Nm00)
 
-### OVERALL STRUCTURE
-
-There are two connection ways between client and server. Socket.io is used for chat session and REST API is used for call logs.
-
-![image](https://user-images.githubusercontent.com/52392004/82965685-c6455500-a003-11ea-91ed-974b845d856d.png)
-
-where REDIS is for PUBSUB and DYNAMO DB is for storage for call logs. Notice that the diagram shows the simple flow for messaging where many flows are ignored to explain the basic flows.
