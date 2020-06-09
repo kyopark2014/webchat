@@ -125,7 +125,21 @@ func Subscribe(channel string, d chan []byte, quit chan struct{}) error {
 	c := pool.Get()
 	defer c.Close()
 
+	var needQuit = false
+
 	go func() {
+		log.D("Check quit!")
+		select {
+		case <-quit:
+			log.D("Unsubscribe is required")
+			needQuit = true
+			//psc.Unsubscribe()
+			//c.Close()
+			return
+		}
+	}()
+
+	go func(q bool) {
 		// Get a connection from a pool
 		c := pool.Get()
 		psc := redis.PubSubConn{Conn: c}
@@ -140,24 +154,24 @@ func Subscribe(channel string, d chan []byte, quit chan struct{}) error {
 			switch v := psc.Receive().(type) {
 			case redis.Message:
 				d <- v.Data
-				//				log.D("message: %s %s\n", v.Channel, v.Data)
+				log.D("message: %s %s\n", v.Channel, v.Data)
+
+				if q {
+					log.D("Unsubscribed")
+					return
+				}
 			case redis.Subscription:
 				log.E("subscribed: %s %s %d\n", v.Channel, v.Kind, v.Count)
 			case error:
 				log.E("%v", error.Error)
 				return
 			}
-
-			/*	select {
-				case <-quit:
-					log.D("Unsubscribe")
-					return
-				} */
 		}
 
 		psc.Unsubscribe()
 		c.Close()
-	}()
+	}(needQuit)
+
 	return nil
 }
 

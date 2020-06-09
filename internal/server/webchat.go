@@ -35,7 +35,8 @@ func (p *WebchatService) Start() error {
 	}
 
 	userMap := make(map[string]string)   // hashmap to memorize the pair of socket id and user id
-	currentUser := make(map[string]bool) // To-do it will be move to DB
+	currentUser := make(map[string]bool) // To-do it will be move to DB, all subscribers in this server
+	//	groupParticipants := make(map[string]string) //
 
 	server.On("connection", func(so socketio.Socket) {
 		log.D("connected... %v", so.Id())
@@ -62,10 +63,10 @@ func (p *WebchatService) Start() error {
 			delete(userMap, so.Id())
 			close(quit)
 
-			for k := range quitMap {
-				log.D("Quit: ", k)
+			/*	for k := range quitMap {
+				log.D("Quit: %v", k)
 				close(quitMap[k])
-			}
+			} */
 
 			for s, u := range userMap {
 				log.D("Last session: %v, uid: %v", s, u)
@@ -142,6 +143,8 @@ func (p *WebchatService) Start() error {
 							if grpInfo != nil {
 								so.Emit("groupInfo", grpInfo)
 							}
+							/*} /*else if event.EvtType == "depart" {
+							 */
 						} else { // --> web client (socket.io)
 							if event.Originated != user {
 								so.Emit("chat", event)
@@ -158,7 +161,7 @@ func (p *WebchatService) Start() error {
 					case grpEvent := <-newGroupInfo: // received group info from client(browser)
 						var grpInfo data.GroupInfo
 						json.Unmarshal([]byte(grpEvent), &grpInfo)
-						log.D("Group(%v): %v %v %v %v", grpInfo.EvtType, grpInfo.From, grpInfo.To, grpInfo.Timestamp, grpInfo.Participants)
+						log.D("GroupInfo(%v): %v %v %v %v", grpInfo.EvtType, grpInfo.From, grpInfo.To, grpInfo.Timestamp, grpInfo.Participants)
 
 						if grpInfo.EvtType == "create" {
 							// save participant information into redis
@@ -177,6 +180,14 @@ func (p *WebchatService) Start() error {
 								}
 							}
 						} else if grpInfo.EvtType == "refer" {
+							var participantList []string
+
+							// get previous participant list
+							info := getGroupInfo(grpInfo.To)
+							for i := range info.Participants {
+								participantList = append(participantList, info.Participants[i])
+							}
+
 							for i := range grpInfo.Participants {
 								log.D("subscribe request to %v", grpInfo.Participants[i])
 								event := NewEvent("subscribe", grpInfo.To, "", grpInfo.Participants[i], "", grpInfo.Timestamp, "")
@@ -185,10 +196,33 @@ func (p *WebchatService) Start() error {
 								if grpInfo.Participants[i] != user {
 									publishEvent(grpInfo.Participants[i], &event)
 								}
+
+								// add refered participants
+								participantList = append(participantList, grpInfo.Participants[i])
 							}
+
+							grpInfo.Participants = participantList
+							setGroupInfo(&grpInfo) // update participant list
+
 						} else if grpInfo.EvtType == "depart" {
-							log.D("Depart: %v", grpInfo.To)
+							log.D("Depart: %v in %v", grpInfo.From, grpInfo.To)
 							close(quitMap[grpInfo.To])
+
+							info := getGroupInfo(grpInfo.To)
+
+							var participantList []string
+							for i := range info.Participants {
+								log.D("notice the departure of %v to %v", grpInfo.From, info.Participants[i])
+								event := NewEvent("depart", grpInfo.To, grpInfo.From, info.Participants[i], "", grpInfo.Timestamp, "")
+
+								publishEvent(info.Participants[i], &event)
+
+								if info.Participants[i] != grpInfo.From {
+									participantList = append(participantList, info.Participants[i])
+								}
+							}
+							info.Participants = participantList
+							setGroupInfo(&grpInfo) // remove grpInfo.From
 						}
 
 					case <-quit:
