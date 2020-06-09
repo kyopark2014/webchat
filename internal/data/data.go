@@ -34,6 +34,7 @@ type Event struct {
 type GroupInfo struct {
 	EvtType      string
 	From         string
+	Originated   string
 	To           string
 	Timestamp    int
 	Participants []string
