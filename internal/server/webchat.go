@@ -375,11 +375,7 @@ func subscribeEvent(channel string, userEvent chan data.Event, quit chan struct{
 				log.E("%v: %v", channel, errJSON)
 			}
 
-			if event.To[0] == 'g' { // for groupchat, "originated" needs to set by the sender
-				userEvent <- NewEvent(event.EvtType, event.To, event.From, channel, event.MsgID, event.Timestamp, event.Body) // send event
-			} else {
-				userEvent <- event
-			}
+			userEvent <- event
 		}
 	}(needQuit)
 }
