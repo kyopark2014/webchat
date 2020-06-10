@@ -8,17 +8,6 @@ type UserProfile struct {
 	Age   int
 }
 
-// Message is the data structure of messages
-type Message struct {
-	EvtType    string
-	From       string
-	Originated string
-	To         string
-	MsgID      string
-	Timestamp  int
-	Text       string
-}
-
 // Event is to define the event
 type Event struct {
 	EvtType    string
@@ -27,7 +16,7 @@ type Event struct {
 	To         string
 	MsgID      string
 	Timestamp  int
-	Text       string
+	Body       string
 }
 
 // GroupInfo is to define a group information

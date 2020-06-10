@@ -89,7 +89,7 @@ func PushList(key string, raw []byte) (interface{}, error) {
 	c := pool.Get()
 	defer c.Close()
 
-	log.D("RPUSH: key: %s, value: %v", key, string(raw))
+	//	log.D("RPUSH: key: %s, value: %v", key, string(raw))
 
 	return c.Do("RPUSH", key, raw)
 }
@@ -154,14 +154,14 @@ func Subscribe(channel string, d chan []byte, quit chan struct{}) error {
 			switch v := psc.Receive().(type) {
 			case redis.Message:
 				d <- v.Data
-				log.D("message: %s %s\n", v.Channel, v.Data)
+				// log.D("message: %s %s\n", v.Channel, v.Data)
 
 				if q {
 					log.D("Unsubscribed")
 					return
 				}
 			case redis.Subscription:
-				log.E("subscribed: %s %s %d\n", v.Channel, v.Kind, v.Count)
+				log.D("subscribed: %s %s %d\n", v.Channel, v.Kind, v.Count)
 			case error:
 				log.E("%v", error.Error)
 				return
