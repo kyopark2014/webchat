@@ -1,6 +1,8 @@
 package rediscache
 
 import (
+	"fmt"
+	"regexp"
 	"time"
 	"webchat/internal/config"
 	"webchat/internal/logger"
@@ -71,11 +73,11 @@ func GetCache(key string) (string, error) {
 }
 
 // SetCache is to record the data in redis
-func SetCache(key string, raw []byte) (interface{}, error) {
+func SetCache(key string, raw []byte, ttl int) (interface{}, error) {
 	c := pool.Get()
 	defer c.Close()
 
-	log.D("key: %s, value: %+v, ttl: %v", key, string(raw), ttl)
+	//	log.D("key: %s, value: %+v, ttl: %v", key, string(raw), ttl)
 
 	if ttl == 0 {
 		return c.Do("SET", key, raw)
@@ -110,6 +112,36 @@ func GetList(key string) ([]string, error) {
 	return raw, err
 }
 
+// GetPrefixValues is to get values from prefix key
+func GetPrefixValues(prefix string) []string {
+	var keys []string
+
+	c := pool.Get()
+	defer c.Close()
+
+	pattern := prefix + "*"
+
+	raw, err := redis.MultiBulk(c.Do("SCAN", 0, "COUNT", 100, "MATCH", pattern))
+	if err == redis.ErrNil {
+		log.E("%v", err)
+	} else if err != nil {
+		log.E("%v", err)
+	}
+
+	for i := 1; i < len(raw); i++ {
+		value := fmt.Sprintf("%s", raw[i])
+
+		r := regexp.MustCompile("[^\\s]+")
+		ids := r.FindAllString(string(value[1:len(value)-1]), -1)
+
+		for j := range ids {
+			keys = append(keys, ids[j])
+		}
+	}
+
+	return keys
+}
+
 // Publish is to send data in redis PUBSUB
 func Publish(key string, raw []byte) (interface{}, error) {
 	c := pool.Get()
@@ -128,7 +160,7 @@ func Subscribe(channel string, d chan []byte, quit chan struct{}) error {
 	var needQuit = false
 
 	go func() {
-		log.D("Check quit!")
+		//		log.D("Check quit!")
 		select {
 		case <-quit:
 			log.D("Unsubscribe is required")

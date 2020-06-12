@@ -16,10 +16,14 @@ import (
 // ProfileService is a list of service
 type ProfileService struct{}
 
+var ttl = 0
+
 // Init is to start Profile Service
 func (p *ProfileService) Init(conf *config.AppConfig) error {
 	// initialize radis for in-memory cache
 	rediscache.NewRedisCache(conf.Redis)
+
+	ttl = conf.Redis.TTL
 
 	// Initiate the dynamo database
 	error := dynamo.NewDatabase(conf.Dynamo)
@@ -81,7 +85,7 @@ func Insert(w http.ResponseWriter, r *http.Request) {
 	}
 	log.D("key: %v value: %v", key, string(raw))
 
-	_, rErr := rediscache.SetCache(key, raw)
+	_, rErr := rediscache.SetCache(key, raw, ttl)
 	if rErr != nil {
 		log.E("Error of setCache: %v", rErr)
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -116,7 +120,7 @@ func InsertToSQL(w http.ResponseWriter, r *http.Request) {
 	}
 	log.D("key: %v value: %v", key, string(raw))
 
-	_, rErr := rediscache.SetCache(key, raw)
+	_, rErr := rediscache.SetCache(key, raw, ttl)
 	if rErr != nil {
 		log.E("Error of setCache: %v", rErr)
 		w.WriteHeader(http.StatusServiceUnavailable)
