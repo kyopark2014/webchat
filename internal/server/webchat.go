@@ -171,16 +171,27 @@ func (p *WebchatService) Start() error {
 							// if offline, backup received messages into QUEUE using rpush
 							if event.To[0] == 'g' { // groupchat
 								participantList := loadParticipantList(event.From)
-								for i := range participantList {
-									log.D("onlineUser[%v]=%v", participantList[i], onlineUser[participantList[i]])
-									if !onlineUser[participantList[i]] {
-										log.D("PUSH (%v)->(%v)", user, participantList[i])
-										pushEvent(participantList[i], &event)
-									}
-								}
 
-								log.D("<-- message: %v (%v)->(%v) Body: %v (%v)", event.Body, event.Originated, event.To, event.MsgID)
-								publishEvent(event.To, &event)
+								// To-Do: need to check sender is a valid user based on participant list
+
+								if len(participantList) > 0 {
+									for i := range participantList {
+										log.D("onlineUser[%v]=%v", participantList[i], onlineUser[participantList[i]])
+										if !onlineUser[participantList[i]] {
+											log.D("PUSH (%v)->(%v)", user, participantList[i])
+											pushEvent(participantList[i], &event)
+										}
+									}
+
+									log.D("<-- message: %v (%v)->(%v) Body: %v (%v)", event.Body, event.Originated, event.To, event.MsgID)
+									publishEvent(event.To, &event)
+								} else { // if the server doesn't have participant list of the groupchat, restart the groupchat
+									RestartEvent := NewEvent("restart", event.From, event.Originated, user, "", event.Timestamp, "")
+									so.Emit("chat", RestartEvent)
+
+									// To-Do
+									// How to prevent that the message losts
+								}
 
 							} else { // 1-to-1
 								if !onlineUser[event.To] {
@@ -236,6 +247,13 @@ func (p *WebchatService) Start() error {
 								// if the groupchat is deactivated, active it
 								if checkGroupActivated(event.From) == false {
 									participantList := loadParticipantList(event.From)
+
+									if len(participantList) == 0 { // if the server doesn't have participant list, use the client has
+										err = json.Unmarshal([]byte(event.Body), &participantList)
+										if err != nil {
+											log.E("%v", err)
+										}
+									}
 
 									for i := range participantList {
 										if participantList[i] != user {

@@ -27,21 +27,8 @@ database DB
 
 queue PUBSUB
 
-
-A -> IM1 : "msg" after detactivation
-
-IM1 -> IM1 : no participant list of "g1"
-
-IM1 -> DB ++: load participant list
-return no participant list
-
-IM1 -> A : "restart g1" 
-
-A -> IM1 : JOIN "g1" with participant list
-
-IM1 -> IM1 : start reactivation 
-
-IM1 -> DB : save participant list based on participant list of A
+A -> IM1 : create "g1" 
+IM1 -> DB : save participant list
 IM1 -> PUBSUB : SUBSCRIBE "g1"
 IM1 -> PUBSUB : PUBLISH B "subscribe required for g1" 
 PUBSUB -> IM2 : "subscribe required for groupID"
@@ -55,10 +42,11 @@ IM3 -> DB ++: load participant list
 return participant list
 IM3 -> PUBSUB: "SUBSCRIBE g1"
 
+A -> IM1 : "msg"
 IM1 -> PUBSUB : PUBLISH "g1" "msg"
 PUBSUB -> IM2 : "msg"
-
 IM2 -> B : "msg"
+
 PUBSUB -> IM3 : "msg"
 IM3 -> C : "msg"
 @enduml

@@ -1,0 +1,71 @@
+@startuml callflow
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+    AttributeIconSize 0
+}
+'skinparam style strictuml
+skinparam stereotypeCBackgroundColor White
+skinparam stereotypeIBackgroundColor White
+skinparam stereotypeEBackgroundColor White
+skinparam stereotypeABackgroundColor White
+skinparam linetype ortho
+
+'title "Basic Flow 1-to-1 (PUBSUB))"
+hide footbox
+
+actor A
+actor B
+actor C
+actor D
+
+collections IM1
+collections IM2
+collections IM3
+collections IM4
+
+database DB 
+
+queue PUBSUB
+
+
+A -> IM1 : REFER D
+
+IM1 -> DB ++: Is D a valid user?
+return valid
+
+IM1 -> PUBSUB: PUBLISH B "JOIN D"
+PUBSUB -> IM2 : "JOIN D"
+IM2 -> B : "JOIN D"
+B -> B : add D
+
+IM1 -> PUBSUB: PUBLISH C "JOIN D"
+PUBSUB -> IM3 : "JOIN D"
+IM3 -> C : "JOIN D"
+C -> C : add D
+
+IM1 -> PUBSUB: PUBLISH "subscribe required for g1"
+PUBSUB -> IM4: "subscribe required for g1"
+IM4 -> PUBSUB: SUBSCRIBE "g1"
+IM4 -> DB++: load participant list
+return participant list
+
+IM4 -> D : "NOTIFY of all users"
+
+D -> D: save list
+
+A -> IM1 : "msg"
+IM1 -> PUBSUB: "msg"
+PUBSUB -> IM2: "msg"
+IM2 -> B: "msg"
+
+PUBSUB -> IM3: "msg"
+IM3 -> C : "msg"
+
+PUBSUB -> IM4: "msg"
+IM4->D : "msg"
+
+@enduml
+
+

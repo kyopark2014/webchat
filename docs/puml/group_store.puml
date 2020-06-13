@@ -1,0 +1,68 @@
+@startuml callflow
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+    AttributeIconSize 0
+}
+'skinparam style strictuml
+skinparam stereotypeCBackgroundColor White
+skinparam stereotypeIBackgroundColor White
+skinparam stereotypeEBackgroundColor White
+skinparam stereotypeABackgroundColor White
+skinparam linetype ortho
+
+'title "Basic Flow 1-to-1 (PUBSUB))"
+hide footbox
+
+actor A
+actor B
+actor C
+
+collections IM1
+collections IM2
+collections IM3
+
+database DB 
+
+queue PUBSUB
+
+
+A -> IM1 !! : offline
+
+B -> IM2 : "msg" for B in "g1"
+
+IM2 -> IM2 : check A
+
+
+IM2 -> DB : store "msg"
+
+A -> IM1 : connect (offline->online)
+
+IM1 -> DB ++ : check stored messages
+return "msg" of "g1"
+
+IM1 -> A : "msg" of "g1"
+
+A -> A : no participant list of "g1"
+
+A -> IM1 : JOIN "g1" 
+
+IM1 -> DB ++ : load participant list 
+return participant list
+
+IM1 -> A : NOTIFY participant list
+
+A -> A : update participant list
+
+A -> IM1 : "delivery"
+
+IM1 -> PUBSUB : PUBLISH B "delivery"
+
+PUBSUB -> IM2 : "delivery"
+
+IM2 -> B : "delivery"
+
+@enduml
+
+

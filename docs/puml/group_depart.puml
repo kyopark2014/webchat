@@ -1,0 +1,54 @@
+@startuml callflow
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+    AttributeIconSize 0
+}
+'skinparam style strictuml
+skinparam stereotypeCBackgroundColor White
+skinparam stereotypeIBackgroundColor White
+skinparam stereotypeEBackgroundColor White
+skinparam stereotypeABackgroundColor White
+skinparam linetype ortho
+
+'title "Basic Flow 1-to-1 (PUBSUB))"
+hide footbox
+
+actor A
+actor B
+actor C
+
+collections IM1
+collections IM2
+collections IM3
+
+database DB 
+
+queue PUBSUB
+
+
+A -> IM1 : DEPART "g1"
+
+A -> A : close "g1"
+
+IM1 -> DB ++ : load participant list
+return participant list
+
+IM1 -> IM1 : remove A in list
+IM1 -> DB : update participant list
+
+IM1 -> PUBSUB : PUBLISH g1 "depart A"
+PUBSUB -> IM2 : "depart A"
+IM2 -> B : "depart A"
+B -> B : close "g1"
+
+PUBSUB -> IM3 : "depart A"
+IM3 -> C : "depart A"
+C -> C : close "g1"
+
+IM1 -> PUBSUB : UNSUBSCRIBE "g1"
+
+@enduml
+
+
