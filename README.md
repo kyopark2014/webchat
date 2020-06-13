@@ -22,6 +22,13 @@ where REDIS is for PUBSUB and DYNAMO DB is for storage for call logs. Notice tha
 ### Basic Call Flow
 
 Client <-> Server : Socket.io
+
+#### Groupchat
+
+Create
+
+![image](https://user-images.githubusercontent.com/52392004/84559883-ac34a200-ad79-11ea-8f8b-8562cf91cc5e.png)
+
  
 #### Overall
 ![alternative text](http://www.plantuml.com/plantuml/png/ZP51Rzf048Nlyoj6N0AAKj4SUuYo1fIuQGB2H56Fote2AnOltHsdfLN_UyVOZN6Ar711lFVDlfd7TMGTkDmwY1jRx7JGMpHEnuY_0EMJQBDP1LyM-SWx7_1fRPaEZWh1Vw_5n0bLupxa5DwgYZdOPScK6bzazYVX47x3MPiOUUy8er2ckuje5CZpVaUZawkSHDFtevFte-f_gBC5LI3wm6iFSCQM7M4lBInRpTONFLZRdF3PUrxw7m3Qi0-ecky4m7Zdo5Hen2TQgjskgwNt7z_yleHSirxgI3YM1xwLL1BE9-CqGvNXV0n7_jS7TJy5K7XnSTKyZv_mTh6OuSraWNtdLxOO83IMGED40BCciy4NxMnkUG-Y7OzFx-1rG7GbqkLmEBr3-2UfZfezIbH6ZBFWdwqZL8CsKJOMi797Md9Rezc-ClKBjRDrobNLZ7Z65mKPndxqPaFymVe1YDC-_9XaetcQJAh1mns70mDf9hbJS_1-2z2zyEPuL-nNHmoWk_BvUSsrQmNYCXJjtF50KdU4KbB_SpPz660JAN-dMBrjNFKw9u0OdGuYyLzigSsct3LCSwTqd7n9irjKDGKWwcj9ZTJqeaucNbEHbrlt1m00)
