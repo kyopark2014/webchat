@@ -35,9 +35,8 @@ func (p *WebchatService) Start() error {
 		log.E("%v", err)
 	}
 
-	userMap := make(map[string]string)             // hashmap to memorize the pair of socket id and user id
-	onlineUser := make(map[string]bool)            // To-do it will be move to DB, all subscribers in this server
-	groupParticipants := make(map[string][]string) // all of groupchat participants
+	userMap := make(map[string]string)  // for session debuging, usermap to memorize the pair of socket id and user id
+	onlineUser := make(map[string]bool) // it is a local cache
 
 	// once the server is booted , load online user list
 	// userList := getOnlineUserInfo()
@@ -83,7 +82,7 @@ func (p *WebchatService) Start() error {
 			}
 		})
 
-		// PUBSUB -> IM
+		// PUBSUB->IM
 		userEvent := make(chan data.Event, 1000)
 
 		so.On("join", func(user string) {
@@ -103,7 +102,7 @@ func (p *WebchatService) Start() error {
 			}
 
 			userMap[so.Id()] = user
-			log.D("successfully subscribe was requested: (%v) -> (%v)", user, user)
+			log.D("successfully subscribe was requested: (%v)->(%v)", user, user)
 			subscribeEvent(user, userEvent, quit, user)
 
 			// restore undelivered message when the user is offline
@@ -113,51 +112,52 @@ func (p *WebchatService) Start() error {
 			go func() {
 				for { // received event
 					select {
-					case event := <-userEvent: // PUBSUB -> IM -> client
+					case event := <-userEvent: // PUBSUB->IM->client
 						if event.From[0] == 'g' {
-							log.D("..> event(%v): (%v) -> (%v) %v %v (%v)", event.EvtType, event.Originated, event.To, event.MsgID, event.Body, so.Id())
+							log.D("..> event(%v): (%v)->(%v) %v %v (%v)", event.EvtType, event.Originated, event.To, event.MsgID, event.Body, so.Id())
 						} else {
-							log.D("..> event(%v): (%v) -> (%v) %v %v (%v)", event.EvtType, event.From, event.To, event.MsgID, event.Body, so.Id())
+							log.D("..> event(%v): (%v)->(%v) %v %v (%v)", event.EvtType, event.From, event.To, event.MsgID, event.Body, so.Id())
 						}
 
 						if event.EvtType == "subscribe" { // if the event type of received event is "subscribe", do "SUBSCRIBE"
 							quitMap[event.From] = make(chan struct{})
 
 							if groupList[event.From] != 1 {
-								log.D("successfully subscribe was requested: (%v) -> (%v)", user, event.From)
+								log.D("successfully subscribe was requested: (%v)->(%v)", user, event.From)
 								groupList[event.From] = 1
 								subscribeEvent(event.From, userEvent, quitMap[event.From], user)
 							} else {
-								log.D("the subcribe was failed by duplication: (%v) -> (%v)", user, event.From)
+								log.D("the subcribe was failed by duplication: (%v)->(%v)", user, event.From)
 							}
 
 							// load particpant list and forward to the client
 							// participantList := loadParticipantList(event.To, groupParticipants)
-							participantList := groupParticipants[event.From]
+							participantList := loadParticipantList(event.From)
+
 							raw, err := json.Marshal(participantList)
 							if err != nil {
 								log.E("Cannot encode to Json", err)
 							}
 
-							log.D("<-- %v: (%v) -> (%v) all participants: %v", "notify", event.Originated, user, string(raw))
+							log.D("<-- %v: (%v)->(%v) all participants: %v", "notify", event.Originated, user, string(raw))
 							NotifyEvent := NewEvent("notify", event.From, event.Originated, user, "", event.Timestamp, string(raw))
 							so.Emit("chat", NotifyEvent)
 
 						} else if event.EvtType == "depart" {
-							log.D("<-- %v: (%v) -> (%v) left user: %v from %v", "depart", event.Originated, user, event.Originated, event.From)
+							log.D("<-- %v: (%v)->(%v) left user: %v from %v", "depart", event.Originated, user, event.Originated, event.From)
 							so.Emit("chat", event)
 						} else if event.EvtType == "join" {
-							log.D("<-- %v: (%v) -> (%v) added participants: %v", "join", event.Originated, user, event.Body)
+							log.D("<-- %v: (%v)->(%v) added participants: %v", "join", event.Originated, user, event.Body)
 
 							so.Emit("chat", event)
 						} else { // --> web client (socket.io)
 							if event.Originated != user {
-								log.D("<-- %v: (%v) -> (%v) %v", event.EvtType, event.Originated, user, event.MsgID)
+								log.D("<-- %v: (%v)->(%v) %v", event.EvtType, event.Originated, user, event.MsgID)
 								so.Emit("chat", event)
 							}
 						}
 
-					case msg := <-newMessages: // client -> IM -> PUBSUB
+					case msg := <-newMessages: // client->IM->PUBSUB
 						var event data.Event
 						json.Unmarshal([]byte(msg), &event)
 						if event.From[0] == 'g' {
@@ -170,16 +170,16 @@ func (p *WebchatService) Start() error {
 							// if online, push into redis
 							// if offline, backup received messages into QUEUE using rpush
 							if event.To[0] == 'g' { // groupchat
-								participantList := loadParticipantList(event.To, groupParticipants)
+								participantList := loadParticipantList(event.From)
 								for i := range participantList {
 									log.D("onlineUser[%v]=%v", participantList[i], onlineUser[participantList[i]])
 									if !onlineUser[participantList[i]] {
-										log.D("PUSH (%v) -> (%v)", user, participantList[i])
+										log.D("PUSH (%v)->(%v)", user, participantList[i])
 										pushEvent(participantList[i], &event)
 									}
 								}
 
-								log.D("<-- message: %v (%v) -> (%v) Body: %v (%v)", event.Body, event.Originated, event.To, event.MsgID)
+								log.D("<-- message: %v (%v)->(%v) Body: %v (%v)", event.Body, event.Originated, event.To, event.MsgID)
 								publishEvent(event.To, &event)
 
 							} else { // 1-to-1
@@ -194,50 +194,74 @@ func (p *WebchatService) Start() error {
 							log.I("Create groupchat: %v", event.From)
 
 							var participantList []string
-							err = json.Unmarshal([]byte(event.Body), &participantList)
-							if err != nil {
+							if err = json.Unmarshal([]byte(event.Body), &participantList); err != nil {
 								log.E("%v", err)
 							}
 
-							groupParticipants[event.From] = participantList // save participant information into local memory
-							setGroupInfo(event.From, participantList)       // save participant information into redis
+							saveParticipantList(event.From, participantList) // save participant information into redis
 
 							// subscribe the groupchat
-							groupList[event.To] = 1 // activate
+							groupList[event.From] = 1 // locally managed group list to prevent duplicated subscribep
 							quitMap[event.To] = make(chan struct{})
 
-							log.D("do SUBSCRIBE itselt: (%v) -> (%v)", user, event.To)
-							subscribeEvent(event.To, userEvent, quitMap[event.To], user)
+							log.D("do SUBSCRIBE itselt: (%v)->(%v)", user, event.From)
+							subscribeEvent(event.From, userEvent, quitMap[event.From], user)
 
 							for i := range participantList {
 								if participantList[i] != user {
-									log.D("request SUBSCRIBE: (%v) -> (%v) for (%v)", user, participantList[i], event.To)
-									subEvent := NewEvent("subscribe", event.To, user, participantList[i], "", event.Timestamp, event.Body)
+									log.D("request SUBSCRIBE: (%v)->(%v) for (%v)", user, participantList[i], event.From)
+									subEvent := NewEvent("subscribe", event.From, user, participantList[i], "", event.Timestamp, event.Body)
 
-									if !onlineUser[participantList[i]] {
-										log.D("offline: PUSH the event (%v) -> (%v)", user, participantList[i])
+									// update online hashmap
+									onlineUser[participantList[i]] = checkOnline(participantList[i])
+
+									if !onlineUser[participantList[i]] { // offline
+										log.D("offline: PUSH the event (%v)->(%v)", user, participantList[i])
 										pushEvent(participantList[i], &subEvent)
-									} else {
+									} else { // online
 										publishEvent(participantList[i], &subEvent)
-										log.D("online: PUBLISH the event (%v) -> (%v)", user, participantList[i])
+										log.D("online: PUBLISH the event (%v)->(%v)", user, participantList[i])
 									}
 								}
 							}
 						} else if event.EvtType == "rejoin" {
-							log.D("Rejoin request: (%v) -> (%v)", event.Originated, event.From)
-							if groupList[event.From] != 1 { // To-Do: currently desubscribe is not applied, but later, I will put it
+							log.D("Rejoin request: (%v)->(%v)", event.Originated, event.From)
+							if groupList[event.From] != 1 { // If the uses doesn't subscribe it yet, subscribe it
 								groupList[event.From] = 1
 								quitMap[event.From] = make(chan struct{})
 
-								log.D("do REJOIN itself: (%v) -> (%v)", event.Originated, event.To)
-								subscribeEvent(event.From, userEvent, quitMap[event.From], user)
+								log.D("do REJOIN itself: (%v)->(%v)", event.Originated, event.To)
+								subscribeEvent(event.From, userEvent, quitMap[event.From], user) // subscribe the groupchat
+
+								// if the groupchat is deactivated, active it
+								if checkGroupActivated(event.From) == false {
+									participantList := loadParticipantList(event.From)
+
+									for i := range participantList {
+										if participantList[i] != user {
+											log.D("request SUBSCRIBE: (%v)->(%v) for (%v)", user, participantList[i], event.To)
+											subEvent := NewEvent("subscribe", event.To, user, participantList[i], "", event.Timestamp, event.Body)
+
+											// update online hashmap
+											onlineUser[participantList[i]] = checkOnline(participantList[i])
+
+											if !onlineUser[participantList[i]] {
+												log.D("offline: PUSH the event (%v)->(%v)", user, participantList[i])
+												pushEvent(participantList[i], &subEvent)
+											} else {
+												publishEvent(participantList[i], &subEvent)
+												log.D("online: PUBLISH the event (%v)->(%v)", user, participantList[i])
+											}
+										}
+									}
+								}
+
 							} else {
-								log.D("Rejoin was not requested by duplication: (%v) -> (%v)", event.Originated, event.To)
+								log.D("Rejoin was not requested by duplication: (%v)->(%v)", event.Originated, event.To)
 							}
 
 							// load particpant list and forward to the client
-							participantList := loadParticipantList(event.From, groupParticipants)
-
+							participantList := loadParticipantList(event.From)
 							raw, err := json.Marshal(participantList)
 							if err != nil {
 								log.E("Cannot encode to Json", err)
@@ -253,18 +277,22 @@ func (p *WebchatService) Start() error {
 							if err != nil {
 								log.E("%v", err)
 							}
-							log.D("(REFER) request (%v) -> (%v) with %v", user, event.To, referedParticipantList)
+							log.D("(REFER) request (%v)->(%v) with %v", user, event.From, referedParticipantList)
 
+							// update the partcipant list
 							var updatedParticipantList []string
 
-							// previous participants need to know joining of new participants
-							participantList := loadParticipantList(event.To, groupParticipants)
+							// current participants should know the joining of new participants
+							participantList := loadParticipantList(event.From)
 							for i := range participantList {
 								// To-Do: curretnly I assume all users are valid but it is not true, I will add another logic for this later
 								joinEvent := NewEvent("join", event.From, user, participantList[i], "", event.Timestamp, event.Body)
 
+								// update online list
+								onlineUser[participantList[i]] = checkOnline(participantList[i])
+
 								if !onlineUser[participantList[i]] {
-									log.D("PUSH (%v) -> (%v)", user, participantList[i])
+									log.D("PUSH (%v)->(%v)", user, participantList[i])
 									pushEvent(participantList[i], &joinEvent)
 								} else {
 									publishEvent(participantList[i], &joinEvent)
@@ -275,11 +303,11 @@ func (p *WebchatService) Start() error {
 
 							// subscribe request to new participants
 							for i := range referedParticipantList {
-								log.D("subscribe request: (%v) -> (%v)", user, referedParticipantList[i])
+								log.D("subscribe request: (%v)->(%v)", user, referedParticipantList[i])
 								subEvent := NewEvent("subscribe", event.From, user, referedParticipantList[i], "", event.Timestamp, event.Body)
 
 								if !onlineUser[referedParticipantList[i]] {
-									log.D("PUSH (%v) -> (%v)", user, referedParticipantList[i])
+									log.D("PUSH (%v)->(%v)", user, referedParticipantList[i])
 									pushEvent(referedParticipantList[i], &subEvent)
 								} else {
 									publishEvent(referedParticipantList[i], &subEvent)
@@ -288,25 +316,27 @@ func (p *WebchatService) Start() error {
 								// add refered participants
 								updatedParticipantList = append(updatedParticipantList, referedParticipantList[i])
 							}
-							// update participant list
-							groupParticipants[event.To] = updatedParticipantList
-							setGroupInfo(event.To, updatedParticipantList) // update participant list in redis
+
+							saveParticipantList(event.From, updatedParticipantList) // update participant list in redis
 
 						} else if event.EvtType == "depart" {
 							groupList[event.From] = 0 // deactivate
-							log.D("Depart request: (%v) -> (%v)", event.Originated, event.From)
+							log.D("Depart request: (%v)->(%v)", event.Originated, event.From)
 							close(quitMap[event.From])
 							delete(quitMap, event.From)
 
-							participantList := loadParticipantList(event.From, groupParticipants)
+							participantList := loadParticipantList(event.From)
 
 							var newparticipantList []string
 							for i := range participantList {
 								log.D("notice the departure of %v to %v in %v", event.Originated, participantList[i], event.From)
 								departEvent := NewEvent("depart", event.From, user, participantList[i], "", event.Timestamp, "")
 
+								// update online hashmap
+								onlineUser[participantList[i]] = checkOnline(participantList[i])
+
 								if !onlineUser[participantList[i]] {
-									log.D("PUSH (%v) -> (%v)", participantList[i])
+									log.D("PUSH (%v)->(%v)", participantList[i])
 									pushEvent(participantList[i], &departEvent)
 								} else {
 									publishEvent(participantList[i], &departEvent)
@@ -317,8 +347,8 @@ func (p *WebchatService) Start() error {
 								}
 							}
 
-							groupParticipants[event.From] = newparticipantList // update local group participant list
-							setGroupInfo(event.From, newparticipantList)       // update participant list in redis
+							saveParticipantList(event.From, newparticipantList) // update participant list in redis
+
 						} else { // deliver, display
 							// if online, push into redis
 							// if offline, backup received messages into QUEUE using rpush
@@ -666,6 +696,7 @@ func removeOnlineUserInfo(user string) {
 }
 
 // getOnlineUserInfo is to load onlie user list
+/*
 func getOnlineUserInfo() []string {
 	// load online user list
 	key := "onlineUser"
@@ -685,7 +716,7 @@ func getOnlineUserInfo() []string {
 	} else {
 		return nil
 	}
-}
+} */
 
 // getOnlineUserInfo is to load onlie user list
 func getOnlineUserList() []string {
@@ -704,29 +735,44 @@ func getOnlineUserList() []string {
 	return onlineList
 }
 
-// setGroupInfo is to save a group information
-func setGroupInfo(key string, participantList []string) {
+func checkGroupActivated(gid string) bool {
+	// load online user list
+	key := gid
+	raw, err := rediscache.GetCache(key)
+	if err != nil {
+		log.E("Error: %v", err)
+		return false
+	}
+	log.D("%v: %v", gid, raw)
+
+	if raw == "[]" || raw == "" {
+		return false
+	} else {
+		return true
+	}
+}
+
+// saveParticipantList is to save the list of group participants
+func saveParticipantList(key string, participantList []string) {
 	//	log.D("group: %v", participantList)
 
 	raw, err := json.Marshal(participantList)
 	if err != nil {
 		log.E("Cannot encode to Json", err)
 	}
-	//	log.D("key: %v value: %v", key, string(raw))
 
-	_, errRedis := rediscache.SetCache(key, raw, 259200)
+	_, errRedis := rediscache.SetCache(key, raw, 360)
 	if errRedis != nil {
 		log.E("Error of setEvent: %v", errRedis)
 	}
 }
 
-// getGroupInfo is to get the information of group info
-func getGroupInfo(key string) []string {
+// loadParticipantList is to get the list of group participants
+func loadParticipantList(key string) []string {
 	raw, err := rediscache.GetCache(key)
 	if err != nil {
 		log.E("Error: %v", err)
 	}
-	log.D("raw: %v", string(raw))
 
 	var participantList []string
 	err = json.Unmarshal([]byte(raw), &participantList)
@@ -737,19 +783,4 @@ func getGroupInfo(key string) []string {
 	log.D("participants: %v", participantList) // To-Do
 
 	return participantList
-}
-
-func loadParticipantList(id string, groupParticipants map[string][]string) []string {
-	participantList := groupParticipants[id]
-	if len(participantList) == 0 {
-		participantList = getGroupInfo(id)
-		if len(groupParticipants[id]) > 0 {
-			return participantList
-		} else {
-			log.E("No participant info: %v", id)
-			return nil
-		}
-	} else {
-		return participantList
-	}
 }
