@@ -23,18 +23,23 @@ where REDIS is for PUBSUB and DYNAMO DB is for storage for call logs. Notice tha
 
 Client <-> Server : Socket.io
 
-#### Groupchat
+### Groupchat
 
-Create
+#### Create
 
+As shown in the bellow picture, A will make a groupchat using a create event. Then IM server will save the participant list and subscribe the groupchat toward PUBSUB server. In this project, I will use a redis server for PUBSUB operation.
+The last participants execept owner will have an event which notices that "SUBSCRIBE" is required to get groupchat messages. After all of subscribe request were completed, the members in the groupchat can share messages easily based on PUBSUB.
+
+This picture shows what relationship of client, IM and REDIS.
 ![image](https://user-images.githubusercontent.com/52392004/84559883-ac34a200-ad79-11ea-8f8b-8562cf91cc5e.png)
 
-
-![alternative text](http://www.plantuml.com/plantuml/png/fPD1Qzj048Nlyoi6NT8G0hLzyw54AwTKq4Af2JslLXDxoLhZp8wQfgN_lIjPnArbqK1rq6hVVEoyjuDkebhHTXVGsH3k0pz1VF3DtehTeGisHlm9c1vZtSD6k6tgWWCBVjrwfRwIY_3JGJGXKGUSfIOvLNDLyLMhL3fkrlu7uLlu1HV7Zb6V0s5CbEjCmPyL4c9ztbDntievj7mzUljwDFyN6dn37OWikcM02_KQ23DZetVuFbqopgwLhsVuvlETMT-PoyiCjhucl6VMYhy3MASic0-h6TO2m748vDHp4x7yD3lPpq_s2u3Qggri95mP17XigIKyT0N8yVfTTmekqGbPJHutimmXILrbPL8Xsc-4APTwv_UsqPGkwa0C1oKglTV5bzBSzYUCokdZOxd-W0Qps5RHYQy8XHvRBrIdr89ztu7lJSrnEGqBj_jobK721gDNLqiCREknLI5jfJaNONxqc7eT8tG99YCKOrSJ2HRJ2VeMYVWFyujfytyDDjl5pVH0-ddtoFZoUtMu9VCYZ2CEN6-eU15kgAcxNnZWDm00)
+The basic groupchat flow is shown as bellow.
+![alternative text](http://www.plantuml.com/plantuml/png/fPH1Jzj048NlyokUt0D5GDN0BL8gOfEsaQY42AZdpNg8LooxONUTDAtwtpkE8pSGGf5wiV7iDxFllK4vZqc5L3zOQ6NjdVLBYlV6pLLG3z1MnOXV102vqlUpu6jN5jxwWE-LIRm-6ORWbsqnjqArk0ybX-VLOKh1JEl4O-tTnFnaVAJVTF3tnfXMbX65qeqesZxXm3wjvboyAEL5TFnsTFHsTFWlr1h73GWVKkM93f99bf7bAXgDpn8oUYV9d_Jm_kesdzpcXuSPLQPat7cVflu7aJoG5TQmIndUNPfPbN9RCocTVC1myyutxuBObLWtaaX8HfkvSWdZRxrdtwVFli-aerH9JLLaNEGWUgovPhIwY0O338-H7wF0aWD3zkPO9vRRLeXUttFwO3m48t8-CVo26trV99xv-AAF6JiEQjEWruReQal2fOcfZyYscrf73ci_pJoY8Ku-DKRGbq2kHyER4MQzJ6HBJOuQqTAl5enjPrR6TaXhHZ1vJehhSJv29ZEs5Gj9DnM35o9GrX2mh8oka7Kj6Kn4uCVQ12uRefsnDDO-DPbaZ5XORBdOLI9_N8udNv4ZY_Kqwc2c_7Iw30UrV9l0AVhxuJRkZ0JRX79qr8VrgjoD9N2gWzkjDxsTnlwMzKRBVWl5hgez3ivUSo1N2F4VuizU4pyOj1dfIYL4Zj5urovKbIj0Zf_yept4MRRNSBFt5jdTZrIx9UHTOJS5ANT-YwvmpgviVlQ8_W00)
 
 
 
 RESTART
+
 If one groupchat is not activate any more, it should be desubscribed in order to reduce resources.
 So, after the groupchat was deactivated, it can be activate when one of participants wants to send a message.
 But since there is no session based on PUBSUB machanism, it may not activate again.
