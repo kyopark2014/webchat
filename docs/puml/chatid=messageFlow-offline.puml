@@ -18,8 +18,8 @@ hide footbox
 actor A
 actor B
 
-collections MsgSrvA
-collections MsgSrvB
+participant MsgSrvA
+participant MsgSrvB
 queue Redis
 database DB
 

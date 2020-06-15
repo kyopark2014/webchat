@@ -12,7 +12,7 @@ skinparam stereotypeEBackgroundColor White
 skinparam stereotypeABackgroundColor White
 skinparam linetype ortho
 
-'title "Basic Flow 1-to-1 (PUBSUB))"
+'title "Basic Flow 1-to-1 (EXCEPTIONAL CASE)"
 hide footbox
 
 actor A
@@ -21,49 +21,39 @@ actor B
 participant IM1
 participant IM2
 
-database SQL
-
-queue PUBSUB AS RD
+database DB
+queue PUBSUB
+queue "Message Store" AS QUEUE
 
 A -> IM1 : connect
-IM1 -> SQL : location A
-IM1 -> RD : SUBSCRIBE A
+IM1 -> DB : location A
+IM1 -> PUBSUB : SUBSCRIBE A
 
 B -> IM2 : connect
-IM2 -> SQL: location B
-IM2 -> RD : SUBSCRIBE B
+IM2 -> DB : location B
+IM2 -> PUBSUB : SUBSCRIBE B
 
+A -> IM1 : "msg" B
+IM1 -> DB ++ : Is B online?
+return yes
 
-A -> IM1 : "msg" to B
+IM1 -> QUEUE : LPUSH B "msg" (Backup)
 
-IM1 -> SQL++: Is B online? 
-return online
+IM1 -> PUBSUB : PUBLISH B "msg"
 
-IM1 -> RD : PUBLISH B "msg"
-
-RD -> IM2 : "msg"
+PUBSUB -> IM2 : "msg"
 
 IM2 -> B : "msg"
 
 B -> IM2 : "delivery"
 
+IM2 -> QUEUE : DEL "msg"
 
-IM2 -> RD : PUBLISH A "delivery"
+IM2 -> PUBSUB : PUBLISH A "delivery"
 
-RD -> IM1 : "delivery"
+PUBSUB -> IM1 : "delivery"
 
 IM1 -> A : "delivery"
-
-
-B -> B : read "msg"
-
-B -> IM2 : "display"
-
-IM2 -> RD : PUBLISH A "display"
-
-RD -> IM1 : "display"
-
-IM1 -> A : "display"
 
 @enduml
 

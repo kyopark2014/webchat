@@ -18,8 +18,8 @@ hide footbox
 actor A
 actor B
 
-collections MsgSrv1
-collections MsgSrv2
+participant MsgSrv1
+participant MsgSrv2
 queue PUBSUB
 
 A -> MsgSrv1 : connect

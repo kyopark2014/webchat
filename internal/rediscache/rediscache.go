@@ -121,7 +121,7 @@ func GetPrefixValues(prefix string) []string {
 
 	pattern := prefix + "*"
 
-	raw, err := redis.MultiBulk(c.Do("SCAN", 0, "COUNT", 100, "MATCH", pattern))
+	raw, err := redis.MultiBulk(c.Do("SCAN", 0, "COUNT", 1000, "MATCH", pattern))
 	if err == redis.ErrNil {
 		log.E("%v", err)
 	} else if err != nil {

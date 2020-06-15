@@ -18,29 +18,35 @@ hide footbox
 actor A
 actor B
 
-collections IM1
-collections IM2
+participant IM1
+participant IM2
 
-database SQL
+database DB
 
 queue PUBSUB AS RD
 
 queue QUEUE AS DB
 
+
 A -> IM1 : connect
-A -> SQL : location A
+A -> DB : location A
 IM1 -> RD : SUBSCRIBE A
 
 B -> IM2 !! : connect (failed)
 
+== B is offline == 
+
+IM2 -> DB : update that B is offline
+
 A -> IM1 : "msg" to B
 
-IM1 -> SQL ++ : Is B online?
+IM1 -> DB ++ : Is B online?
 return offline
 
 IM1 -> DB : store "msg" (RPUSH B "msg")
 
-B -> B : offline->online
+
+== B is online == 
 
 B -> IM2 : connect
 
@@ -49,6 +55,11 @@ IM2 -> RD : SUBSCRIBE B
 IM2 -> DB : check messages (LRANGE 0 -1)
 
 DB -> IM2 : "msg"
+
+note over IM2
+The stored events will be delivered by order
+end note
+
 
 IM2 -> B : "msg"
 

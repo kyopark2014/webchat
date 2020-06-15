@@ -11,6 +11,7 @@ import (
 	"webchat/internal/rediscache"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 // ProfileService is a list of service
@@ -42,13 +43,30 @@ func (p *ProfileService) Start() error {
 	// Init Router
 	r := mux.NewRouter()
 
+	corsOpts := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://localhost:4040", "http://10.253.69.155:8080"}, //you service is available and allowed for this base url
+		AllowedMethods: []string{
+			http.MethodGet, //http methods for your app
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+			http.MethodOptions,
+			http.MethodHead,
+		},
+		AllowedHeaders: []string{
+			"*", //or you can your header key values which you are using in your application
+		},
+	})
+
 	// Route Handler / Endpoints
 	r.HandleFunc("/add", Insert).Methods("POST")
 	r.HandleFunc("/search/{key}", Retrieve).Methods("GET")
+	r.HandleFunc("/getall", GetAll).Methods("GET")
 	r.HandleFunc("/", LiveCheck).Methods("GET")
 
 	var err error
-	err = http.ListenAndServe(":4040", r)
+	err = http.ListenAndServe(":4040", corsOpts.Handler(r))
 
 	return err
 }
@@ -77,7 +95,7 @@ func Insert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// put the item into rediscache
-	key := item.UID // UID to identify the profile
+	key := "profile:" + item.UID // UID to identify the profile
 
 	raw, err := json.Marshal(item)
 	if err != nil {
@@ -112,7 +130,7 @@ func InsertToSQL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// put the item into rediscache
-	key := item.UID // UID to identify the profile
+	key := "profile:" + item.UID // UID to identify the profile
 
 	raw, err := json.Marshal(item)
 	if err != nil {
@@ -137,7 +155,7 @@ func Retrieve(w http.ResponseWriter, r *http.Request) {
 	log.D("Looking for uid: %v ...", uid)
 
 	// search in redis cache
-	raw, err := rediscache.GetCache(uid)
+	raw, err := rediscache.GetCache("profile:" + uid)
 	if err != nil {
 		log.E("Error: %v", err)
 	}
@@ -168,6 +186,42 @@ func Retrieve(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(item)
 	}
+}
+
+// GetAll is the api to search all Items
+func GetAll(w http.ResponseWriter, r *http.Request) {
+	log.D("Get All Profiles")
+	var members []string
+	ids := rediscache.GetPrefixValues("profile:")
+
+	for i := range ids {
+		members = append(members, ids[i][8:len(ids[i])])
+	}
+
+	var profiles []string
+
+	for i := range members {
+		// search in redis cache
+		log.D("members: %v %v", i, members[i])
+
+		raw, err := rediscache.GetCache("profile:" + members[i])
+		if err != nil {
+			log.E("Error: %v", err)
+		}
+		log.D("raw: %v", raw)
+
+		/*		var value *data.UserProfile
+				err = json.Unmarshal([]byte(raw), &value)
+				if err != nil {
+					log.E("%v: %v", members[i], err)
+				}
+
+				log.D("%v %v", i, value) */
+		profiles = append(profiles, raw)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(profiles)
 }
 
 // RetrieveFromSQL is the api to search an Item from SQL DB

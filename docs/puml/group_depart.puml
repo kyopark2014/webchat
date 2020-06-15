@@ -19,14 +19,17 @@ actor A
 actor B
 actor C
 
-collections IM1
-collections IM2
-collections IM3
+participant IM1
+participant IM2
+participant IM3
 
 database DB 
 
 queue PUBSUB
 
+note over A
+user will depart manually
+end note
 
 A -> IM1 : DEPART "g1"
 

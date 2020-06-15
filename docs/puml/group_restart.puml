@@ -19,25 +19,33 @@ actor A
 actor B
 actor C
 
-collections IM1
-collections IM2
-collections IM3
+
+participant IM1
+participant IM2
+participant IM3
 
 database DB 
 
 queue PUBSUB
 
+== The chat session was not exist any more in server ==
 
-A -> IM1 : "msg" after detactivation
+A -> IM1 : "msg" for "g1"
 
 IM1 -> IM1 : no participant list of "g1"
 
 IM1 -> DB ++: load participant list
 return no participant list
 
-IM1 -> A : "restart g1" 
+IM1 -> A : "RESTART g1" 
+
+note over A
+"JOIN" event will be generated 
+based on the call log after "RESTART"
+end note
 
 A -> IM1 : JOIN "g1" with participant list
+
 
 IM1 -> IM1 : start reactivation 
 
@@ -54,6 +62,12 @@ PUBSUB -> IM3 : "subscribe required for g1"
 IM3 -> DB ++: load participant list
 return participant list
 IM3 -> PUBSUB: "SUBSCRIBE g1"
+
+== groupchat session is ready  == 
+
+note over IM1
+The stored message will be sent by PUBLISH
+end note
 
 IM1 -> PUBSUB : PUBLISH "g1" "msg"
 PUBSUB -> IM2 : "msg"

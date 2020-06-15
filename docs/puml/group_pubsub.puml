@@ -19,31 +19,31 @@ actor A
 actor B
 actor C
 
-collections IM1
-collections IM2
-collections IM3
+participant IM1
+participant IM2
+participant IM3
 
-database SQL
+database DB
 
 queue PUBSUB AS RD
 
 A -> IM1 : connect
-IM1 -> SQL : location A
+IM1 -> DB : location A
 IM1 -> RD : SUBSCRIBE A
 
 B -> IM2 : connect
-IM2 -> SQL: location B
+IM2 -> DB: location B
 IM2 -> RD : SUBSCRIBE B
 
 C -> IM3 : connect
-IM3 -> SQL: location C
+IM3 -> DB: location C
 IM3 -> RD : SUBSCRIBE C
 
 
 
 A -> IM1 : create "groupID"
 
-'IM1 -> SQL++: Is B and C online? 
+'IM1 -> DB++: Is B and C online? 
 'return online
 
 IM1 -> RD : SUBSCRIBE "groupID"

@@ -19,9 +19,9 @@ actor A
 actor B
 actor C
 
-collections IM1
-collections IM2
-collections IM3
+participant IM1
+participant IM2
+participant IM3
 
 database DB 
 
@@ -30,9 +30,15 @@ queue PUBSUB
 
 A -> IM1 !! : offline
 
+== A is offline == 
+
 B -> IM2 : "msg" for B in "g1"
 
 IM2 -> IM2 : check A
+
+note over IM2
+if the receiver is offline, store in DB
+end note
 
 
 IM2 -> DB : store "msg"
@@ -42,9 +48,21 @@ A -> IM1 : connect (offline->online)
 IM1 -> DB ++ : check stored messages
 return "msg" of "g1"
 
+note over A
+A will have the first message 
+for groupchat "g1" 
+where A doen't have participant list of "g1"
+end note
+
 IM1 -> A : "msg" of "g1"
 
 A -> A : no participant list of "g1"
+
+note over A
+A will make "JOIN" request 
+in order to get participant list
+end note
+
 
 A -> IM1 : JOIN "g1" 
 
@@ -52,6 +70,11 @@ IM1 -> DB ++ : load participant list
 return participant list
 
 IM1 -> A : NOTIFY participant list
+
+note over A
+A will overwrite participant list
+using the newest list from the server
+end note
 
 A -> A : update participant list
 

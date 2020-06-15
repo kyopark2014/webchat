@@ -574,7 +574,7 @@ func getEvent(key string) *data.Event {
 }
 
 func checkOnline(user string) bool {
-	status, err := rediscache.GetCache(user)
+	status, err := rediscache.GetCache("on:" + user)
 	if err != nil {
 		log.E("Error: %v", err)
 	}

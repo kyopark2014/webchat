@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"net/http"
 	"os"
-	"strconv"
 	"webchat/internal/config"
 	"webchat/internal/data"
 	"webchat/internal/logger"
@@ -53,7 +52,7 @@ func NewDatabase(cfg config.SQLConfig) {
 func InsertToDB(value data.UserProfile) error {
 	// INSERT INTO my_db.data (uid, name, email, age) VALUES("johnny", "Park", "john@email.com",21);
 	insert, err := MyDb.Query("INSERT INTO "+Dbname+"."+Dbtable+" (uid, name, email, age) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE uid=?",
-		value.UID, value.Name, value.Email, strconv.FormatInt(int64(value.Age), 10), value.UID)
+		value.UID, value.Name, value.UID)
 	if err != nil {
 		log.E("Fail to insert data %v", err)
 		return err
@@ -79,12 +78,12 @@ func RetrevefromDB(uid string) (data.UserProfile, int) {
 
 	isExist := false
 	for results.Next() {
-		if err = results.Scan(&value.UID, &value.Name, &value.Email, &value.Age); err != nil {
+		if err = results.Scan(&value.UID, &value.Name); err != nil {
 			log.E("Faill to query: %v", err)
 			return value, http.StatusInternalServerError
 		}
 
-		log.D("data: %v %v %v %v", value.UID, value.Name, value.Email, value.Age)
+		log.D("data: %v %v %v %v", value.UID, value.Name)
 		isExist = true
 	}
 
