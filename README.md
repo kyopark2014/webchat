@@ -9,6 +9,28 @@ profile server: https://github.com/kyopark2014/webchat-golang-profile
 
 web client: https://github.com/kyopark2014/webchat-js-webclient
 
+### How to Run
+This project shows the operation using docker. 
+
+#### Dynamo db (local)
+```c
+$ docker run -d -p 8000:8000 amazon/dynamodb-local
+```
+
+#### Redis (docker)
+```c
+$ docker run -d -p 6379:6379 redis:latest
+```
+
+#### RUN Webchat
+$ go run main.go
+Note that you can run it in docker using Dockerfile as bellow.
+```c
+$ docker build -t webchat:v1 .
+$ docker run -d -p 8080:8080 webchat:v1
+```
+
+Then, run the webchat client using chrome browser.
 
 ### STRUCTURE
 
