@@ -44,7 +44,7 @@ func (p *ProfileService) Start() error {
 	r := mux.NewRouter()
 
 	corsOpts := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:4040", "http://10.253.69.155:8080"}, //you service is available and allowed for this base url
+		AllowedOrigins: []string{"*"}, //you service is available and allowed for this base url
 		AllowedMethods: []string{
 			http.MethodGet, //http methods for your app
 			http.MethodPost,
