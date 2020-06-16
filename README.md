@@ -62,9 +62,10 @@ $ docker run -d -p 4040:4040 -e AWS_ACCESS_KEY="key" -e AWS_SECRET_ACCESS_KEY="k
 3) Run client
 ```c
 $ git clone https://github.com/kyopark2014/webchat-js-webclient
-$ code 
+$ docker build -t webclient:v1 .
+$ docker run -d -p 8080:80 webclient:v1
 ```
-Note: I recommand "liver server" in visual studio code in order to run "index.html" in webchat-js-webclient
+- Open "http://ip-address:8080/ using chrome.
 
 
 ### STRUCTURE
