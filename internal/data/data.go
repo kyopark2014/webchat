@@ -16,13 +16,3 @@ type Event struct {
 	Timestamp  int
 	Body       string
 }
-
-// GroupInfo is to define a group information
-type GroupInfo struct {
-	EvtType      string
-	From         string
-	Originated   string
-	To           string
-	Timestamp    int
-	Participants []string
-}

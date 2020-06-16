@@ -186,6 +186,7 @@ func (p *WebchatService) Start() error {
 									log.D("<-- message: %v (%v)->(%v) Body: %v (%v)", event.Body, event.Originated, event.To, event.MsgID)
 									publishEvent(event.To, &event)
 								} else { // if the server doesn't have participant list of the groupchat, restart the groupchat
+									log.D("<-- RESTART to the client since no participant list in the server.")
 									RestartEvent := NewEvent("restart", event.From, event.Originated, user, "", event.Timestamp, "")
 									so.Emit("chat", RestartEvent)
 
@@ -237,6 +238,17 @@ func (p *WebchatService) Start() error {
 							}
 						} else if event.EvtType == "rejoin" {
 							log.D("Rejoin request: (%v)->(%v)", event.Originated, event.From)
+
+							participantList := loadParticipantList(event.From)
+							if len(participantList) == 0 { // if the server doesn't have participant list, use the client has
+								err = json.Unmarshal([]byte(event.Body), &participantList)
+								if err != nil {
+									log.E("%v", err)
+								}
+
+								saveParticipantList(event.From, participantList) // update participant list in redis
+							}
+
 							if groupList[event.From] != 1 { // If the uses doesn't subscribe it yet, subscribe it
 								groupList[event.From] = 1
 								quitMap[event.From] = make(chan struct{})
@@ -246,15 +258,6 @@ func (p *WebchatService) Start() error {
 
 								// if the groupchat is deactivated, active it
 								if checkGroupActivated(event.From) == false {
-									participantList := loadParticipantList(event.From)
-
-									if len(participantList) == 0 { // if the server doesn't have participant list, use the client has
-										err = json.Unmarshal([]byte(event.Body), &participantList)
-										if err != nil {
-											log.E("%v", err)
-										}
-									}
-
 									for i := range participantList {
 										if participantList[i] != user {
 											log.D("request SUBSCRIBE: (%v)->(%v) for (%v)", user, participantList[i], event.To)
@@ -279,13 +282,12 @@ func (p *WebchatService) Start() error {
 							}
 
 							// load particpant list and forward to the client
-							participantList := loadParticipantList(event.From)
 							raw, err := json.Marshal(participantList)
 							if err != nil {
 								log.E("Cannot encode to Json", err)
 							}
 
-							log.D("Rejoin response: from: %v To: %v Participants:%v", event.From, user, string(raw))
+							log.D("<-- NOTIFY from: %v To: %v Participants:%v", event.From, user, string(raw))
 							NotifyEvent := NewEvent("notify", event.From, event.Originated, user, "", event.Timestamp, string(raw))
 							so.Emit("chat", NotifyEvent)
 
@@ -779,7 +781,7 @@ func saveParticipantList(key string, participantList []string) {
 		log.E("Cannot encode to Json", err)
 	}
 
-	_, errRedis := rediscache.SetCache(key, raw, 360)
+	_, errRedis := rediscache.SetCache(key, raw, 0)
 	if errRedis != nil {
 		log.E("Error of setEvent: %v", errRedis)
 	}

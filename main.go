@@ -82,7 +82,6 @@ func StartService() error {
 
 	// if there are more services, those can be appened here
 	serviceList = append(serviceList, server.NewBaseService(&server.WebchatService{}, &wg, conf))
-	serviceList = append(serviceList, server.NewBaseService(&server.ProfileService{}, &wg, conf))
 
 	for _, service := range serviceList {
 		go service.Run()
