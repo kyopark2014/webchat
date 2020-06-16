@@ -22,15 +22,62 @@ $ docker run -d -p 8000:8000 amazon/dynamodb-local
 $ docker run -d -p 6379:6379 redis:latest
 ```
 
-#### RUN Webchat
-$ go run main.go
-Note that you can run it in docker using Dockerfile as bellow.
+#### RUN in visual studio code
+1) Redis
 ```c
-$ docker build -t webchat:v1 .
-$ docker run -d -p 8080:8080 webchat:v1
+$ docker run -d -p 6379:6379 redis:latest
 ```
+2) Dynamodb
+```c
+$ docker run -d -p 8000:8000 amazon/dynamodb-local
+```
+3) Profile Server
+```c
+$ git clone https://github.com/kyopark2014/webchat-golang-profile
+$ go run main.go
+```
+4) Webchat server
+```c
+$ git clone https://github.com/kyopark2014/webchat
+$ go run main.go
+```
+5) Run client
+```c
+$ git clone https://github.com/kyopark2014/webchat-js-webclient
+$ code 
+```c
+Note: I recommand "liver server" in visual studio code in order to run "index.html" in webchat-js-webclient
 
-Then, run the webchat client using chrome browser.
+#### RUN in Docker
+Note that the ip address in the server should be replaced from "localhost" to "your IP".
+
+1) Redis
+```c
+$ docker run -d -p 6379:6379 redis:latest
+```
+2) Dynamodb
+```c
+$ docker run -d -p 8000:8000 amazon/dynamodb-local
+```
+3) Profile Server
+```c
+$ git clone https://github.com/kyopark2014/webchat-golang-profile
+
+$ go run main.go
+```
+4) Webchat server
+```c
+$ git clone https://github.com/kyopark2014/webchat
+$ docker build -t webchat-golang-profile:v1 .
+$ docker run -d -p 4040:4040 -e AWS_ACCESS_KEY="key" -e AWS_SECRET_ACCESS_KEY="key" webchat-golang-profile:v1
+```
+5) Run client
+```c
+$ git clone https://github.com/kyopark2014/webchat-js-webclient
+$ code 
+```c
+Note: I recommand "liver server" in visual studio code in order to run "index.html" in webchat-js-webclient
+
 
 ### STRUCTURE
 
