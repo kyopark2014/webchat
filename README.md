@@ -28,17 +28,20 @@ $ docker run -d -p 6379:6379 redis:latest
 $ git clone https://github.com/kyopark2014/webchat-golang-profile
 $ go run main.go
 ```
+
 2) Webchat server
 ```c
 $ git clone https://github.com/kyopark2014/webchat
 $ go run main.go
 ```
+
 3) Run client
 ```c
 $ git clone https://github.com/kyopark2014/webchat-js-webclient
 $ code 
-```c
+```
 Note: I recommand "liver server" in visual studio code in order to run "index.html" in webchat-js-webclient
+
 
 #### RUN in Docker
 Note that the ip address in the server should be replaced from "localhost" to "your IP".
@@ -46,20 +49,21 @@ Note that the ip address in the server should be replaced from "localhost" to "y
 1) Profile Server
 ```c
 $ git clone https://github.com/kyopark2014/webchat-golang-profile
-
 $ go run main.go
 ```
+
 2) Webchat server
 ```c
 $ git clone https://github.com/kyopark2014/webchat
 $ docker build -t webchat-golang-profile:v1 .
 $ docker run -d -p 4040:4040 -e AWS_ACCESS_KEY="key" -e AWS_SECRET_ACCESS_KEY="key" webchat-golang-profile:v1
 ```
+
 3) Run client
 ```c
 $ git clone https://github.com/kyopark2014/webchat-js-webclient
 $ code 
-```c
+```
 Note: I recommand "liver server" in visual studio code in order to run "index.html" in webchat-js-webclient
 
 
