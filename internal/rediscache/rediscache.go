@@ -1,6 +1,7 @@
 package rediscache
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"time"
@@ -214,4 +215,21 @@ func Del(key string) error {
 
 	_, err := c.Do("DEL", key)
 	return err
+}
+
+// Del deletes key.
+func DelList(key string, groupId string) error {
+	c := pool.Get()
+	defer c.Close()
+
+	raw, err := json.Marshal(groupId)
+	if err != nil {
+		log.E("Cannot encode to Json", err)
+	}
+
+	log.D("raw: %v", raw)
+
+	_, Rediserr := c.Do("LREM", key, 1, string(raw))
+
+	return Rediserr
 }

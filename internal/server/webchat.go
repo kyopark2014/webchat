@@ -106,6 +106,19 @@ func (p *WebchatService) Start() error {
 
 			subscribeEvent(user, userEvent, quit, user)
 
+			subState := loadSubState(user)
+			for i := range subState {
+				log.D("%v subState: %v %v", user, i, subState[i])
+				if groupList[subState[i]] != 1 {
+					groupList[subState[i]] = 1
+
+					log.D("SUBSCRIBE was requested: (%v)->(%v)", user, subState[i])
+					subscribeEvent(subState[i], userEvent, quitMap[subState[i]], user)
+				} else {
+					log.E("It should not exist: %v", subState[i])
+				}
+			}
+
 			// restore undelivered message when the user is offline
 			log.D("Check S&F messages in redis")
 			getEventList(user, userEvent)
@@ -131,8 +144,6 @@ func (p *WebchatService) Start() error {
 
 							} else {
 								log.D("the subcribe was failed by duplication: (%v)->(%v)", user, event.From)
-
-								setSubState(event.From, user, "true")
 							}
 
 							// NOTIFY
@@ -181,12 +192,6 @@ func (p *WebchatService) Start() error {
 										if !onlineUser[participantList[i]] { // offline
 											log.D("%v OFFLINE: PUSH (%v)->(%v) : %v (%v)", participantList[i], user, participantList[i], event.Body, event.MsgID)
 											pushEvent(participantList[i], &event)
-										} else {
-											substate := getSubState(event.From, participantList[i])
-											if !substate { // online but not subscribed to the groupchat To-Do: I think it is not efficient
-												log.D("onlineUser[%v]=%v subState[%v]=%v", participantList[i], onlineUser[participantList[i]], participantList[i], substate)
-												publishEvent(participantList[i], &event)
-											}
 										}
 									}
 
@@ -218,6 +223,8 @@ func (p *WebchatService) Start() error {
 							}
 
 							storeParticipantList(event.From, participantList) // save participant information into redis
+
+							saveSubState(event.From, participantList) // save subscriber's state
 
 							// subscribe the groupchat
 							groupList[event.From] = 1 // locally managed group list to prevent duplicated subscribep
@@ -308,6 +315,8 @@ func (p *WebchatService) Start() error {
 							}
 							log.D("(REFER) request (%v)->(%v) with %v", user, event.From, referedParticipantList)
 
+							saveSubState(event.From, referedParticipantList) // add refered subscriber's state
+
 							// update the partcipant list
 							var updatedParticipantList []string
 
@@ -353,6 +362,8 @@ func (p *WebchatService) Start() error {
 							log.D("Depart request: (%v)->(%v)", event.Originated, event.From)
 							close(quitMap[event.From])
 							delete(quitMap, event.From)
+
+							removeSubState(event.Originated, event.From) // update substate
 
 							participantList := loadParticipantList(event.From)
 
@@ -469,17 +480,12 @@ func subscribeEvent(channel string, userEvent chan data.Event, quit chan struct{
 
 	var needQuit = false
 
-	setSubState(channel, user, "true")
-
 	go func() {
 		select {
 		case <-quit:
 			log.D("Closing subscribe channel: %v by %v", channel, user)
 			needQuit = true
 
-			setSubState(channel, user, "false")
-
-			log.D("subState off: %v for %v", user, channel)
 			return
 		}
 	}()
@@ -566,42 +572,52 @@ func fowardEventList(key string, e chan string) {
 	}
 }
 
-// setEvent is to save a message
-func setSubState(groupID string, uid string, value string) {
-	// generate key
-	key := "substate:" + groupID + ":" + uid
-
-	raw, err := json.Marshal(value)
+// pushEvent is to save a message
+func saveSubState(groupID string, participantList []string) {
+	raw, err := json.Marshal(groupID)
 	if err != nil {
 		log.E("Cannot encode to Json", err)
 	}
-	//	log.D("key: %v value: %v", key, string(raw))
+	//	log.D("<-- pushed message: key: %v value: %v", key, string(raw))
 
-	_, errRedis := rediscache.SetCache(key, raw, 3600)
-	if errRedis != nil {
-		log.E("Error of setEvent: %v", errRedis)
+	for i := range participantList {
+		key := "substate:" + participantList[i]
+		_, errRedis := rediscache.PushList(key, raw)
+		if errRedis != nil {
+			log.E("Error of pushEvent: %v", errRedis)
+		}
 	}
 }
 
-// getEvent is to get the information of event saved in radis
-func getSubState(groupID string, uid string) bool {
-	key := "substate:" + groupID + ":" + uid
-	raw, err := rediscache.GetCache(key)
+// getEventList is to get event list
+func loadSubState(uid string) []string {
+	key := "substate:" + uid
+	raw, err := rediscache.GetList(key)
 	if err != nil {
 		log.E("Error: %v", err)
 	}
-	//	log.D("raw: %v", string(raw))
 
-	var value string
-	err = json.Unmarshal([]byte(raw), &value)
-	if err != nil {
-		log.E("%v: %v", key, err)
+	var list []string
+	for i := range raw {
+		var groupID string
+		err = json.Unmarshal([]byte(raw[i]), &groupID)
+
+		list = append(list, groupID)
+
+		if err != nil {
+			log.E("%v: %v", key, err)
+		}
 	}
 
-	if value == "true" {
-		return true
-	} else {
-		return false
+	return list
+}
+
+func removeSubState(uid string, groupID string) {
+	key := "substate:" + uid
+	log.D("substate(remove): %v of %v (%v)", groupID, uid, key)
+
+	if err := rediscache.DelList(key, groupID); err != nil {
+		log.E("%v", err)
 	}
 }
 
@@ -845,8 +861,10 @@ func checkGroupActivated(gid string) bool {
 }
 
 // storeParticipantList is to save the list of group participants
-func storeParticipantList(key string, participantList []string) {
+func storeParticipantList(groupID string, participantList []string) {
 	//	log.D("group: %v", participantList)
+
+	key := "participants:" + groupID
 
 	raw, err := json.Marshal(participantList)
 	if err != nil {
@@ -860,7 +878,9 @@ func storeParticipantList(key string, participantList []string) {
 }
 
 // loadParticipantList is to get the list of group participants
-func loadParticipantList(key string) []string {
+func loadParticipantList(groupID string) []string {
+	key := "participants:" + groupID
+
 	raw, err := rediscache.GetCache(key)
 	if err != nil {
 		log.E("Error: %v", err)

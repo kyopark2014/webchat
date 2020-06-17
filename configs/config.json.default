@@ -5,13 +5,13 @@
     },
     "GracefulTermTimeMillis": 500,
     "Dynamo": {
-        "Endpoint": "http://10.253.69.155:8000",
+        "Endpoint": "http://localhost:8000",
         "Region": "us-west-2",
         "ReadCapacity": 10,
         "WriteCapacity": 10
     },  
     "Redis":{
-        "Host": "10.253.69.155",
+        "Host": "localhost",
         "Port": "6379",
         "PoolMaxIdle":300,
         "PoolMaxActive":300,
@@ -21,11 +21,11 @@
         "ConnTimeout":500
     },
     "ChatConfig": {
-        "Host": "10.253.69.155",
+        "Host": "localhost",
         "Port": 4000
     },
     "SQL":{
-        "Host":"10.253.69.155",  
+        "Host":"localhost",  
         "Port":"3306",
         "Username":"minikube",
         "Password":"minikube",
