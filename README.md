@@ -10,6 +10,29 @@ profile server: https://github.com/kyopark2014/webchat-golang-profile
 web client: https://github.com/kyopark2014/webchat-js-webclient
 
 
+### PROPERTIES
+#### Single channel per  a client
+The channel is reusuable between client and server. It is important to reduce the connection complexity of the server so that the number of capability to cover the number of user in a node.
+
+#### Single event queue
+The messages and notification are using a single queue so that the order of messsage and notification can be aligned easily. Also, it has a benefit to manage messages and notifications compared with other messagers which use diffenre queue for message and notification.
+
+#### Scalable architecture 
+It provides horizontal scaling.
+
+#### Profile functionanity
+User profile can be share between members which can improve user experience.
+
+#### Delivery and display notification
+The notifications of delivery and display are useful for convinient chat service. Think about the popular messenger, slack which is also using websocket(socket.io) but it doesn't provide deliver and notifcation functionalities.
+
+#### Groupchat (#of members is not limited)
+The groupchat is based on PUBSUB which has a strength for groupchat. Also, the number of participants is not limited and can be easily scaled up.
+
+#### Chat client in Web Browser
+Web browser has a benefit for availability since all computer has a browser which measn that users can easily message service.
+
+
 ### STRUCTURE
 
 There are two connection ways between client and server. Socket.io is used for chat session and REST API is used for call logs.
