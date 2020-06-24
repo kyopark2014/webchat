@@ -39,7 +39,6 @@ func (p *WebchatService) Start() error {
 	onlineUser := make(map[string]bool) // it is a local cache and similar with regisration
 
 	// once the server is booted , load online user list
-	// userList := getOnlineUserInfo()
 	userList := getOnlineUserList()
 	for i := range userList {
 		onlineUser[userList[i]] = true
@@ -89,12 +88,11 @@ func (p *WebchatService) Start() error {
 			log.D("Join...%v (%v)", user, so.Id())
 
 			onlineUser[user] = true
-			// addOnlineUserInfo(user)
-			setOnline(user)
+			setOnline(user) // update in redis
 
 			for s, u := range userMap {
 				log.D("session: %v, uid: %v", s, u)
-				if u == user { // delete duplicated session
+				if u == user { // delete duplicated old session
 					delete(userMap, s)
 
 					log.D("%v is trying to join again!", user)
@@ -102,11 +100,11 @@ func (p *WebchatService) Start() error {
 			}
 
 			userMap[so.Id()] = user
-			log.D("successfully subscribe was requested: (%v)->(%v)", user, user)
 
+			log.D("successfully subscribe was requested for (%v)", user)
 			subscribeEvent(user, userEvent, quit, user)
 
-			subState := loadSubState(user)
+			subState := loadSubState(user) // load the state of groupchat sessions which were established at the previous connection
 			for i := range subState {
 				log.D("%v subState: %v %v", user, i, subState[i])
 				if groupList[subState[i]] != 1 {
@@ -115,13 +113,12 @@ func (p *WebchatService) Start() error {
 					log.D("SUBSCRIBE was requested: (%v)->(%v)", user, subState[i])
 					subscribeEvent(subState[i], userEvent, quitMap[subState[i]], user)
 				} else {
-					log.E("It should not exist: %v", subState[i])
+					log.E("This case may not exist: %v", subState[i])
 				}
 			}
 
-			// restore undelivered message when the user is offline
 			log.D("Check S&F messages in redis")
-			getEventList(user, userEvent)
+			getEventList(user, userEvent) // get undelivered messages when the user is offline
 
 			go func() {
 				for { // received event
@@ -133,17 +130,16 @@ func (p *WebchatService) Start() error {
 							log.D("..> event(%v): (%v)->(%v) %v %v (%v)", event.EvtType, event.From, event.To, event.MsgID, event.Body, so.Id())
 						}
 
-						if event.EvtType == "subscribe" { // if the event type of received event is "subscribe", do "SUBSCRIBE"
-							quitMap[event.From] = make(chan struct{})
-
+						if event.EvtType == "subscribe" { // if the event type is "subscribe", do "SUBSCRIBE"
 							if groupList[event.From] != 1 {
-								log.D("successfully SUBSCRIBE was requested: from (%v) toward (%v)", user, event.From)
 								groupList[event.From] = 1
 
+								log.D("successfully SUBSCRIBE was requested: from (%v) toward (%v)", user, event.From)
+								quitMap[event.From] = make(chan struct{})
 								subscribeEvent(event.From, userEvent, quitMap[event.From], user)
 
 							} else {
-								log.D("the subcribe was failed by duplication: (%v)->(%v)", user, event.From)
+								log.D("the subcribe was skiped by duplication: (%v)->(%v)", user, event.From)
 							}
 
 							// NOTIFY
@@ -158,12 +154,13 @@ func (p *WebchatService) Start() error {
 							so.Emit("chat", NotifyEvent)
 
 						} else if event.EvtType == "depart" {
-							log.D("<-- %v: (%v)->(client) left user: %v from %v", "depart", event.Originated, user, event.From)
+							log.D("<-- %v: (%v)->(client) left user: %v from %v", "depart", event.Originated, event.Originated, event.From)
 							so.Emit("chat", event)
+
 						} else if event.EvtType == "join" {
 							log.D("<-- %v: (%v)->(client) add participants: %v", "join", event.Originated, event.Body)
-
 							so.Emit("chat", event)
+
 						} else { // --> web client (socket.io)
 							if event.Originated != user {
 								log.D("<-- %v: (%v)->(client) %v", event.EvtType, event.Originated, event.MsgID)
@@ -187,6 +184,7 @@ func (p *WebchatService) Start() error {
 								participantList := loadParticipantList(event.From)
 
 								// To-Do: need to check sender is a valid user based on participant list
+
 								if len(participantList) > 0 {
 									for i := range participantList {
 										if !onlineUser[participantList[i]] { // offline
@@ -228,9 +226,9 @@ func (p *WebchatService) Start() error {
 
 							// subscribe the groupchat
 							groupList[event.From] = 1 // locally managed group list to prevent duplicated subscribep
-							quitMap[event.To] = make(chan struct{})
 
 							log.D("do SUBSCRIBE itselt: (%v)->(%v)", user, event.From)
+							quitMap[event.From] = make(chan struct{})
 							subscribeEvent(event.From, userEvent, quitMap[event.From], user)
 
 							for i := range participantList {
@@ -265,11 +263,11 @@ func (p *WebchatService) Start() error {
 								fowardEventList("store:"+event.From, newMessages) // send the stored messages which was not sent since there is no participant list
 							}
 
-							if groupList[event.From] != 1 { // If the uses doesn't subscribe it yet, subscribe it
+							if groupList[event.From] != 1 { // If the user doesn't subscribe into the groupchat yet, subscribe it
 								groupList[event.From] = 1
-								quitMap[event.From] = make(chan struct{})
 
 								log.D("do REJOIN itself: (%v)->(%v)", event.Originated, event.To)
+								quitMap[event.From] = make(chan struct{})
 								subscribeEvent(event.From, userEvent, quitMap[event.From], user) // subscribe the groupchat
 
 								// if the groupchat is deactivated, active it
@@ -360,34 +358,35 @@ func (p *WebchatService) Start() error {
 						} else if event.EvtType == "depart" {
 							groupList[event.From] = 0 // deactivate
 							log.D("Depart request: (%v)->(%v)", event.Originated, event.From)
-							close(quitMap[event.From])
-							delete(quitMap, event.From)
-
-							removeSubState(event.Originated, event.From) // update substate
 
 							participantList := loadParticipantList(event.From)
 
 							var newparticipantList []string
 							for i := range participantList {
 								log.D("notice the departure of %v to %v in %v", event.Originated, participantList[i], event.From)
-								departEvent := NewEvent("depart", event.From, user, participantList[i], "", event.Timestamp, "")
+								departEvent := NewEvent("depart", event.From, event.Originated, participantList[i], "", event.Timestamp, "")
 
 								// update online hashmap
 								onlineUser[participantList[i]] = checkOnline(participantList[i])
 
 								if !onlineUser[participantList[i]] {
-									log.D("PUSH (%v)->(%v)", participantList[i])
+									log.D("PUSH (%v)->(%v)", event.Originated, participantList[i])
 									pushEvent(participantList[i], &departEvent)
 								} else {
 									publishEvent(participantList[i], &departEvent)
 								}
 
-								if participantList[i] != event.From {
+								if participantList[i] != event.Originated {
 									newparticipantList = append(newparticipantList, participantList[i])
 								}
 							}
 
+							close(quitMap[event.From])
+							delete(quitMap, event.From)
+							removeSubState(event.Originated, event.From) // update substate
+
 							storeParticipantList(event.From, newparticipantList) // update participant list in redis
+							log.D("New List: %v for %v", newparticipantList, event.From)
 
 						} else { // deliver, display
 							// if online, push into redis
@@ -668,7 +667,6 @@ func checkOnline(user string) bool {
 	if err != nil {
 		log.E("Error: %v", err)
 	}
-
 	// log.D("status: %v", status)
 
 	if status == "1" {
@@ -765,7 +763,6 @@ func removeOnlineUserInfo(user string) {
 	if err != nil {
 		log.E("%v: %v", key, err)
 	}
-
 	// log.D("users: %v", userList)
 
 	sort.Slice(userList, func(i, j int) bool {
@@ -775,8 +772,6 @@ func removeOnlineUserInfo(user string) {
 	index := sort.Search(len(userList), func(i int) bool {
 		return user <= userList[i]
 	})
-
-	// log.D("users: %v", userList)
 
 	// log.D("user: %v, index: %v, userList[%v]:%v lenth of userList:%v", user, index, index, userList[index], len(userList))
 	if (index < len(userList)) && (user == userList[index]) {
@@ -802,29 +797,6 @@ func removeOnlineUserInfo(user string) {
 		log.E("Error of setEvent: %v", errRedis)
 	}
 }
-
-// getOnlineUserInfo is to load onlie user list
-/*
-func getOnlineUserInfo() []string {
-	// load online user list
-	key := "onlineUser"
-	userstr, err := rediscache.GetCache(key)
-	if err != nil {
-		log.E("Error: %v", err)
-	}
-	log.D("raw: %v", string(userstr))
-
-	if userstr != "" {
-		var userList []string
-		err = json.Unmarshal([]byte(userstr), &userList)
-		if err != nil {
-			log.E("%v", err)
-		}
-		return userList
-	} else {
-		return nil
-	}
-} */
 
 // getOnlineUserInfo is to load onlie user list
 func getOnlineUserList() []string {
