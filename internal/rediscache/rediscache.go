@@ -3,6 +3,7 @@ package rediscache
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"time"
 	"webchat/internal/config"
@@ -155,32 +156,26 @@ func Publish(key string, raw []byte) (interface{}, error) {
 
 // Subscribe is to get message event in redis
 func Subscribe(channel string, d chan []byte, quit chan struct{}) error {
-	c := pool.Get()
-	defer c.Close()
-
-	var needQuit = false
-
 	go func() {
-		//		log.D("Check quit!")
-		select {
-		case <-quit:
-			log.D("Unsubscribe is required")
-			needQuit = true
-			//psc.Unsubscribe()
-			//c.Close()
-			return
-		}
-	}()
-
-	go func(q bool) {
-		// Get a connection from a pool
 		c := pool.Get()
+		defer c.Close()
+
 		psc := redis.PubSubConn{Conn: c}
 
-		// Set up subscriptions
+		// Set up subscription
 		if err := psc.Subscribe(channel); err != nil {
 			log.E("Subscribe error: %v", err.Error)
+			return
 		}
+
+		go func() {
+			select {
+			case <-quit:
+				log.D("Unsubscribe is requested")
+				psc.Unsubscribe()
+				c.Close()
+			}
+		}()
 
 		// While not a permanent error on the connection.
 		for c.Err() == nil {
@@ -188,22 +183,21 @@ func Subscribe(channel string, d chan []byte, quit chan struct{}) error {
 			case redis.Message:
 				d <- v.Data
 				// log.D("message: %s %s\n", v.Channel, v.Data)
-
-				if q {
-					log.D("Unsubscribed")
+			case redis.Subscription:
+				log.D("(PUBSUB) kind: %s count: %d channel: %s", v.Kind, v.Count, v.Channel)
+				if v.Count == 0 {
 					return
 				}
-			case redis.Subscription:
-				log.D("subscribed: %s %s %d\n", v.Channel, v.Kind, v.Count)
 			case error:
-				log.E("%v", error.Error)
+				log.E("error in redis subscriptin: %v", error.Error)
 				return
+
+			default:
+				// do nothing..
+				log.E("unkown redis subscription event type: %v", reflect.TypeOf(v))
 			}
 		}
-
-		psc.Unsubscribe()
-		c.Close()
-	}(needQuit)
+	}()
 
 	return nil
 }
@@ -217,17 +211,17 @@ func Del(key string) error {
 	return err
 }
 
-// Del deletes key.
-func DelList(key string, groupId string) error {
+// DelList is to deletes key.
+func DelList(key string, groupID string) error {
 	c := pool.Get()
 	defer c.Close()
 
-	raw, err := json.Marshal(groupId)
+	raw, err := json.Marshal(groupID)
 	if err != nil {
 		log.E("Cannot encode to Json", err)
 	}
 
-	log.D("raw: %v", raw)
+	//	log.D("raw: %v", raw)
 
 	_, Rediserr := c.Do("LREM", key, 1, string(raw))
 

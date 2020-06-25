@@ -477,37 +477,26 @@ func subscribeEvent(channel string, userEvent chan data.Event, quit chan struct{
 		log.E("%s", err)
 	}
 
-	var needQuit = false
-
 	go func() {
-		select {
-		case <-quit:
-			log.D("Closing subscribe channel: %v by %v", channel, user)
-			needQuit = true
+		for {
+			select {
+			case <-quit:
+				log.D("Unsubscribed : %v (%v)", channel, user)
+				return
 
-			return
+			case raw := <-redisChan:
+				//	log.D("--> Event of (%v): %v", user, string(raw))
+
+				var event data.Event
+				errJSON := json.Unmarshal([]byte(raw), &event)
+				if errJSON != nil {
+					log.E("%v: %v", channel, errJSON)
+				}
+
+				userEvent <- event
+			}
 		}
 	}()
-
-	go func(quit bool) {
-		for {
-			if quit {
-				log.D("Unsubscribing : %v (%v)", channel, user)
-				return
-			}
-
-			raw := <-redisChan
-			//	log.D("--> Event of (%v): %v", user, string(raw))
-
-			var event data.Event
-			errJSON := json.Unmarshal([]byte(raw), &event)
-			if errJSON != nil {
-				log.E("%v: %v", channel, errJSON)
-			}
-
-			userEvent <- event
-		}
-	}(needQuit)
 }
 
 // pushEvent is to save a message
