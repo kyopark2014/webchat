@@ -9,7 +9,7 @@ web client: https://github.com/kyopark2014/webchat-js-webclient
 
 
 ### PROPERTIES
-#### Single channel per  a client
+#### Single channel for a client
 The channel is reusuable between client and server. It is important to reduce the connection complexity of the server so that the number of capability to cover the number of user in a node.
 
 #### Single event queue
