@@ -1,7 +1,5 @@
 # webchat
-It is a salable chat service based on socket.io and PUBSUB.
-
-There are three repositories related to this project.
+It is a salable chat service based on socket.io and PUBSUB which provides horizontal sacling and save resources for chat service. There are three repositories related to this project.
 
 chat server: https://github.com/kyopark2014/webchat-golang-chat
 
@@ -17,19 +15,16 @@ The channel is reusuable between client and server. It is important to reduce th
 #### Single event queue
 The messages and notification are using a single queue so that the order of messsage and notification can be aligned easily. Also, it has a benefit to manage messages and notifications compared with other messagers which use diffenre queue for message and notification.
 
-#### Scalable architecture 
-It provides horizontal scaling.
-
 #### Profile functionanity
 User profile can be share between members which can improve user experience.
 
 #### Delivery and display notification
 The notifications of delivery and display are useful for convinient chat service. Think about the popular messenger, slack which is also using websocket(socket.io) but it doesn't provide deliver and notifcation functionalities.
 
-#### Groupchat (#of members is not limited)
+#### Groupchat (unlimited groupchat participants)
 The groupchat is based on PUBSUB which has a strength for groupchat. Also, the number of participants is not limited and can be easily scaled up.
 
-#### Chat client in Web Browser
+#### Chat client based on Web Browser
 Web browser has a benefit for availability since all computer has a browser which measn that users can easily message service.
 
 
@@ -61,7 +56,7 @@ Once one of client in a chatroom is not online, PUBSUB is not a good way to comm
 The proposed architecture is using PUBSUB to endpoints which doesn't have the redundancy and some of benefits to notice the received message and manages a single connection for multiple chat rooms. Notice that see https://github.com/kyopark2014/webchat-golang-chat if you need more.
 Sender will publish to Receiver directly and messages can be delivered consistently without the state of Receiver.
 
-#### execeptional case based on application
+#### Execeptional case based on application
 
 ![alternative text](http://www.plantuml.com/plantuml/png/ZPFHRzCm4CRVxwyuvMMRfagqZpp0x2w8I1qKGWMlhdDhhRbsiI-CWlZVSOXHkhJIzfBalllbk-ySvIQo2jpkB6fbxRtrZn0VZDkhe7QehOeHVmCYebJwOHDywvgvjpxWrwrX-jSH8VZ7NfGsKJtkGqDXh0hcODOjKwMzgyqlmbVm1ow6YP4FbZ0cIdUXuBX3WJmVzZG_7-KSMhqSBL-EYkTGQnnr8Fh0MmzmmOOjOI5LD1hVfKF6wOJzP8gNvRTvkVnIVVmW5ZWNTNbLmDOqXFVUyzh_152QVK2Hxn8WZM2ZpLuvnkfkEgfd08rYjLQHy5R2zvPQmkLArgl_HN57CQeDOPqCgK1HuwTLkIe114xUT9Ru6hLtZZH3gfAOd99clLPil4EHvUoRMkbQppzNiamzaBtDx8dDxDH6PlcSZNoIfjZ5JO7oACtrTPAhY1AzwqxxBGJYDZWyK8JCzMibRh5SrUzHPflBxkkr-oiusI8zBAg11EWxmpfPph7be1mp3LdpWy8XWqSvRil5oE9aj1ZU7ysVZhnpU36IRyWrtOy3y1S0)
 
